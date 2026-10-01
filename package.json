@@ -23,6 +23,7 @@
   "scripts": {
     "check": "node scripts/check.mjs",
     "dev:setup": "node scripts/dev-setup.mjs",
+    "preview": "node scripts/preview.mjs",
     "typecheck": ".dev/node_modules/.bin/tsc -p tsconfig.json",
     "test": "node --experimental-transform-types --no-warnings --import ./test/register.mjs --test \"test/**/*.test.ts\"",
     "verify": "npm run check && npm run typecheck && npm test",
