@@ -47,7 +47,7 @@ for (const file of await listTs("extensions")) {
 }
 
 // Shipped files: runtime resources + docs only.
-for (const entry of ["extensions", "themes", "licenses", "README.md", "CHANGELOG.md", "LICENSE", "NOTICE"]) {
+for (const entry of ["extensions", "themes", "licenses", "README.md", "README.en.md", "CHANGELOG.md", "LICENSE", "NOTICE"]) {
 	assert.ok(manifest.files.includes(entry), `files must include ${entry}`);
 }
 for (const devOnly of ["scripts", "test", ".dev", "tsconfig.json"]) {
