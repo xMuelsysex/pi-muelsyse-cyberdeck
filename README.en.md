@@ -333,6 +333,12 @@ Both previews reuse the local Pi agent directory and defaults, enabling the buil
 to the same directory. The Open TUI entry point comes from `preview.extensions` in
 `package.json`, and every other extension and skill stays unloaded.
 
+## Credits
+
+- [LinuxDo](https://linux.do/) — community support and feedback; many of this pack's palette preferences come from there.
+- [pi-open-tui](https://github.com/OldSuns/pi-open-tui) — reference for the telemetry statistics and the Open TUI handover and gradient integration (MIT).
+- [pi-sakura-cyberdeck](https://github.com/beautifulrem/pi-sakura-cyberdeck) — the upstream project this pack derives from: Zentui, shimmer, theme and header all started there.
+
 ## License
 
 MIT. Claude shimmer is a muelsyse-themed fork of [pi-claude-shimmer](https://github.com/ouzhenkun/pi-claude-shimmer) (MIT). Zentui is a modified copy of [pi-zentui](https://github.com/lmilojevicc/pi-zentui) (MIT, see NOTICE). Telemetry is adapted from pi-open-tui (MIT, see `licenses/pi-open-tui-MIT.txt`).

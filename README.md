@@ -327,6 +327,12 @@ npm run preview:open-tui  # 本项目 UI，加上 npm 安装的 Open TUI
 
 两种预览共用本机 Pi 的认证和配置目录，启用基本工具 `read`、`bash`、`edit`、`write`。预览中的设置和会话也会写入本机目录。Open TUI 的入口由根目录 `package.json` 的 `preview.extensions` 配置；其余插件和 Skill 暂停加载。
 
+## 致谢
+
+- [LinuxDo](https://linux.do/)：社区支持与反馈来源，本包的配色偏好不少来自这里。
+- [pi-open-tui](https://github.com/OldSuns/pi-open-tui)：遥测统计与 Open TUI 接管、渐变适配的实现参考（MIT）。
+- [pi-sakura-cyberdeck](https://github.com/beautifulrem/pi-sakura-cyberdeck)：本包的上游项目，Zentui、shimmer、主题与页眉的起点。
+
 ## 许可证
 
 MIT。Claude shimmer 基于 [pi-claude-shimmer](https://github.com/ouzhenkun/pi-claude-shimmer)（MIT）修改；Zentui 基于 [pi-zentui](https://github.com/lmilojevicc/pi-zentui)（MIT，见 NOTICE）修改；遥测改编自 pi-open-tui（MIT，见 `licenses/pi-open-tui-MIT.txt`）。
