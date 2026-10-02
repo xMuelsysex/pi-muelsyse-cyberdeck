@@ -1,11 +1,11 @@
 import { type Theme, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { getColorMode, paintFg, type RGB } from "../shared/color";
-import { renderSakuraFrameGradient } from "./gradient";
+import { renderMuelsyseFrameGradient } from "./gradient";
 import { installPrototypePatch } from "./prototype-patch-registry";
 
 /**
- * Tool card chrome: sakura gradient title frame + status rail around Pi's own tool rendering.
+ * Tool card chrome: muelsyse gradient title frame + status rail around Pi's own tool rendering.
  *
  * Body lines are Pi's render output at `width - 3` columns, passed through byte-for-byte: the
  * pack never rewrites, strips or truncates tool output. Tools that draw their own shell
@@ -40,7 +40,7 @@ type CardRender = {
 	lines: string[];
 };
 
-// Theme-independent status hues (sakura-macaron.json roles): sky = running, mint = ok, coral = error.
+// Theme-independent status hues (muelsyse-macaron.json roles): sky = running, mint = ok, coral = error.
 const STATUS_RGB: Record<ToolStatus, RGB> = {
 	running: [159, 211, 242],
 	ok: [174, 229, 197],
@@ -127,9 +127,9 @@ function buildCard(
 	const left = paintFg(STATUS_RGB[status], LEFT_RAIL);
 	const right = paintFg(FRAME_RGB, RIGHT_RAIL);
 	const lines: string[] = inner.slice(0, prefix);
-	lines.push(renderSakuraFrameGradient(frameTop(statusText(status, name), width)));
+	lines.push(renderMuelsyseFrameGradient(frameTop(statusText(status, name), width)));
 	for (let i = prefix; i < inner.length; i++) lines.push(`${left}${inner[i]}${right}`);
-	lines.push(renderSakuraFrameGradient(frameBottom(width)));
+	lines.push(renderMuelsyseFrameGradient(frameBottom(width)));
 	return { lines, prefix };
 }
 

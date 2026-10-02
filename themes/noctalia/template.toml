@@ -1,0 +1,3 @@
+[templates.muelsyse-macaron]
+input_path = "muelsyse-macaron.json"
+output_path = "~/.pi/agent/themes/muelsyse-macaron.json"

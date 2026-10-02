@@ -11,7 +11,7 @@ import {
   loadConfig,
   normalizeConfig,
   parseMatrixCommand,
-  renderSakuraMatrix,
+  renderMuelsyseMatrix,
   saveConfig,
 } from "../extensions/matrix/index";
 
@@ -48,11 +48,11 @@ test("subcommand parsing", () => {
     assert.equal(parseMatrixCommand(bad).type, "invalid", bad);
   }
   const unknown = parseMatrixCommand("wat");
-  assert.ok(unknown.type === "invalid" && unknown.message.includes("/sakura-matrix height N"));
+  assert.ok(unknown.type === "invalid" && unknown.message.includes("/muelsyse-matrix height N"));
 });
 
 test("load/save report errors instead of throwing or silently resetting", () => {
-  const dir = mkdtempSync(join(tmpdir(), "sakura-matrix-"));
+  const dir = mkdtempSync(join(tmpdir(), "muelsyse-matrix-"));
   try {
     const path = join(dir, "matrix.json");
     assert.deepEqual(loadConfig(path), { config: { ...DEFAULT_CONFIG } });
@@ -77,14 +77,14 @@ test("load/save report errors instead of throwing or silently resetting", () => 
 test("rendered rows fit the width and match the configured height", () => {
   for (const width of [1, 7, 40, 213]) {
     const drops = createDrops(width, 0.65, 4);
-    const lines = renderSakuraMatrix(width, 4, 1.3, "working", drops);
+    const lines = renderMuelsyseMatrix(width, 4, 1.3, "working", drops);
     assert.equal(lines.length, 4);
     for (const line of lines) assert.ok(visibleWidth(line) <= width, `width ${width}`);
   }
 });
 
 test("describeConfig summarizes state", () => {
-  assert.equal(describeConfig({ ...DEFAULT_CONFIG }), "Sakura Matrix: off · 10 FPS · 4 lines · density 0.65");
+  assert.equal(describeConfig({ ...DEFAULT_CONFIG }), "Muelsyse Matrix: off · 10 FPS · 4 lines · density 0.65");
 });
 
 test("extension never touches Pi's working message/indicator and only animates in TUI", async () => {
@@ -119,6 +119,6 @@ test("extension never touches Pi's working message/indicator and only animates i
 
   await command!.handler("status", tui);
   await command!.handler("fps 99", tui);
-  assert.ok(calls.at(-1)!.includes("Usage: /sakura-matrix fps <8-18>"));
+  assert.ok(calls.at(-1)!.includes("Usage: /muelsyse-matrix fps <8-18>"));
   assert.ok(!calls.some((c) => c.startsWith("setWorking")));
 });

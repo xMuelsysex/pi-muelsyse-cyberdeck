@@ -1,8 +1,8 @@
 /**
- * Sakura-macaron Claude-style working spinner for Pi (interactive TUI only).
+ * Muelsyse-macaron Claude-style working spinner for Pi (interactive TUI only).
  *
- * Fork of pi-claude-shimmer, recolored for sakura-macaron:
- * - One verb per agent run, swept by a soft white highlight over sakura → sky stops
+ * Fork of pi-claude-shimmer, recolored for muelsyse-macaron:
+ * - One verb per agent run, swept by a soft white highlight over muelsyse → sky stops
  * - Thinking: the effort tag breathes between its tier color and petal white
  * - Stall: after ~3s without stream updates the verb fades toward coral
  * - Tools: while a tool executes, the verb pulses toward mint
@@ -40,9 +40,9 @@ const COMPLETION_VERBS = [
   "Polished", "Simmered", "Sparkled", "Tempered", "Whisked",
 ] as const;
 
-// ─── Palette (sakura-macaron theme vars) ──────────────────────────
+// ─── Palette (muelsyse-macaron theme vars) ──────────────────────────
 
-const SAKURA: RGB = [242, 167, 198]; // #F2A7C6
+const MUELSYSE: RGB = [242, 167, 198]; // #F2A7C6
 const PEACH: RGB = [246, 188, 154]; // #F6BC9A
 const PETAL: RGB = [239, 195, 230]; // #EFC3E6
 const LAVENDER: RGB = [199, 184, 245]; // #C7B8F5
@@ -51,7 +51,7 @@ const MINT: RGB = [174, 229, 197]; // #AEE5C5
 const CORAL: RGB = [255, 143, 163]; // #FF8FA3
 const MUTED: RGB = [169, 155, 174]; // #A99BAE
 const HIGHLIGHT: RGB = [255, 248, 252]; // petal white
-const SWEEP_STOPS: readonly RGB[] = [SAKURA, PEACH, PETAL, LAVENDER, SKY];
+const SWEEP_STOPS: readonly RGB[] = [MUELSYSE, PEACH, PETAL, LAVENDER, SKY];
 
 // Claude-style ping-pong spinner glyphs.
 const GLYPHS = ["·", "✢", "✳", "✶", "✻", "✽"];
@@ -289,7 +289,7 @@ const EFFORT_TAGS: Record<string, { tag: string; color: RGB }> = {
   minimal: { tag: "MINIMAL", color: MUTED },
   low: { tag: "LOW", color: SKY },
   medium: { tag: "MEDIUM", color: PETAL },
-  high: { tag: "HIGH", color: SAKURA },
+  high: { tag: "HIGH", color: MUELSYSE },
   xhigh: { tag: "XHIGH", color: LAVENDER },
   max: { tag: "MAX", color: CORAL },
 };
@@ -353,7 +353,7 @@ export default function claudeShimmer(pi: ExtensionAPI) {
 
   function buildMessage(): string {
     const now = Date.now();
-    const glyph = paintFg(SAKURA, SPINNER_FRAMES[tick % SPINNER_FRAMES.length]!);
+    const glyph = paintFg(MUELSYSE, SPINNER_FRAMES[tick % SPINNER_FRAMES.length]!);
     const text = `${verb}${animatedDots(tick)}`;
     const reverse = mode !== "requesting";
     let verbText: string;
@@ -447,7 +447,9 @@ export default function claudeShimmer(pi: ExtensionAPI) {
     const notice = completionNotice(outcome, elapsed);
     if (notice && ctx_ && isInteractiveTui(ctx_)) {
       try {
-        ctx_.ui.notify(`${paintFg(SAKURA, notice.slice(0, 1))}${paintFg(MUTED, notice.slice(1))}`, "info");
+        const message = `${paintFg(MUELSYSE, notice.slice(0, 1))}${paintFg(MUTED, notice.slice(1))}`;
+        pi.events.emit("muelsyse:completion-notice", message);
+        ctx_.ui.notify(message, "info");
       } catch {}
     }
   }

@@ -10,7 +10,7 @@ const read = (path) => readFile(resolve(root, path), "utf8");
 const exists = (path) => access(resolve(root, path)).then(() => true, () => false);
 const manifest = JSON.parse(await read("package.json"));
 
-assert.equal(manifest.name, "pi-sakura-cyberdeck");
+assert.equal(manifest.name, "pi-muelsyse-cyberdeck");
 assert.ok(manifest.keywords.includes("pi-package"));
 assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
 
@@ -55,7 +55,7 @@ for (const devOnly of ["scripts", "test", ".dev", "tsconfig.json"]) {
 }
 
 // Theme: every required Pi color is present.
-const theme = JSON.parse(await read("themes/sakura-macaron.json"));
+const theme = JSON.parse(await read("themes/muelsyse-macaron.json"));
 const requiredColors = [
 	"accent", "border", "borderAccent", "borderMuted", "success", "error", "warning",
 	"muted", "dim", "text", "thinkingText", "selectedBg", "userMessageBg",
@@ -68,8 +68,18 @@ const requiredColors = [
 	"thinkingOff", "thinkingMinimal", "thinkingLow", "thinkingMedium", "thinkingHigh",
 	"thinkingXhigh", "thinkingMax", "bashMode",
 ];
-assert.equal(theme.name, "sakura-macaron");
+assert.equal(theme.name, "muelsyse-macaron");
 for (const color of requiredColors) assert.ok(color in theme.colors, `missing theme color: ${color}`);
+
+const noctaliaTemplate = JSON.parse(await read("themes/noctalia/muelsyse-macaron.json"));
+assert.equal(noctaliaTemplate.name, theme.name);
+assert.deepEqual(noctaliaTemplate.colors, theme.colors, "Noctalia must preserve Muelsyse roles and transparent backgrounds");
+assert.deepEqual(noctaliaTemplate.export, theme.export);
+assert.deepEqual(Object.keys(noctaliaTemplate.vars), Object.keys(theme.vars));
+for (const value of Object.values(noctaliaTemplate.vars)) {
+	assert.match(value, /^\{\{colors\.[a-z_]+\.default\.hex\}\}$/, "Noctalia colors must come from palette tokens");
+}
+assert.ok(await exists("themes/noctalia/template.toml"));
 
 // Changelog and README document the current version (the update notice reads CHANGELOG.md).
 const changelog = await read("CHANGELOG.md");
@@ -79,4 +89,4 @@ const readme = await read("README.md");
 assert.ok(readme.includes(`**v${manifest.version}**`), "README headline must mention the version");
 assert.ok(readme.includes(`### ${manifest.version}`), "README changelog must list the version");
 
-console.log(`pi-sakura-cyberdeck ${manifest.version} package check passed`);
+console.log(`pi-muelsyse-cyberdeck ${manifest.version} package check passed`);

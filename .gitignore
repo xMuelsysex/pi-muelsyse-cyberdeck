@@ -6,3 +6,6 @@ node_modules/
 .pi/
 .workflow/
 .maestroignore
+.ace-tool/
+.playwright-mcp/
+artifacts/

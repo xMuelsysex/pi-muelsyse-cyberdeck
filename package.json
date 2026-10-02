@@ -1,7 +1,7 @@
 {
-  "name": "pi-sakura-cyberdeck",
+  "name": "pi-muelsyse-cyberdeck",
   "version": "1.2.0",
-  "description": "Lightweight Sakura Macaron visual pack for Pi: theme, cyberdeck header, macaron Zentui chrome, Claude-style shimmer, optional matrix rain.",
+  "description": "Lightweight Muelsyse Macaron visual pack for Pi: theme, cyberdeck header, macaron Zentui chrome, Claude-style shimmer, optional matrix rain.",
   "type": "module",
   "license": "MIT",
   "keywords": [
@@ -9,7 +9,7 @@
     "pi-theme",
     "pi-extension",
     "tui",
-    "sakura"
+    "muelsyse"
   ],
   "files": [
     "extensions",
@@ -24,6 +24,7 @@
     "check": "node scripts/check.mjs",
     "dev:setup": "node scripts/dev-setup.mjs",
     "preview": "node scripts/preview.mjs",
+    "preview:open-tui": "node scripts/preview.mjs --open-tui",
     "typecheck": ".dev/node_modules/.bin/tsc -p tsconfig.json",
     "test": "node --experimental-transform-types --no-warnings --import ./test/register.mjs --test \"test/**/*.test.ts\"",
     "verify": "npm run check && npm run typecheck && npm test",
@@ -32,6 +33,12 @@
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
+  },
+  "preview": {
+    "tools": ["read", "bash", "edit", "write"],
+    "extensions": [
+      "~/.pi/agent/npm/node_modules/pi-open-tui/extensions/open-tui/index.ts"
+    ]
   },
   "pi": {
     "extensions": [
@@ -42,7 +49,7 @@
       "./extensions/changelog/index.ts"
     ],
     "themes": [
-      "./themes/sakura-macaron.json"
+      "./themes/muelsyse-macaron.json"
     ]
   }
 }

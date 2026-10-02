@@ -30,7 +30,11 @@ import {
 	type PolishedTuiConfig,
 	type SeparatorStyle,
 	type UiFeaturesConfig,
+	type TelemetryConfig,
+	type SettingsLanguage,
+	isSettingsLanguage,
 } from "./config";
+import { settingsText } from "./settings-language";
 import { sanitizeExtensionStatusText } from "./extension-status";
 import { isIconMode } from "./icons";
 import type { SessionLifecycle } from "./session-lifecycle";
@@ -59,6 +63,7 @@ const settingsSections = [
 	"layout",
 	"builtinSegments",
 	"extensionSegments",
+	"telemetry",
 ] as const;
 
 type ColorSettingId = "starship" | "editorMessages";
@@ -92,6 +97,8 @@ type SettingsCommandDeps = {
 	setExtensionStatusPlacement: (key: string, placement: ExtensionStatusPlacement) => void;
 	setExtensionStatusColorMode: (key: string, colorMode: ExtensionStatusColorMode) => void;
 	setAnimations: (patch: Partial<AnimationsConfig>) => void;
+	setTelemetry: (patch: Partial<TelemetryConfig>) => void;
+	setLanguage: (language: SettingsLanguage) => void;
 	requestRender: () => void;
 	settingsListTheme?: SettingsListTheme;
 };
@@ -138,6 +145,7 @@ const footerSegmentSettingLabels: Record<FooterSegmentSettingId, string> = {
 	runtime: "Runtime",
 	context: "Context usage",
 	tokens: "Token counts",
+	cacheHit: "Cache hit rate",
 	cost: "Session cost",
 	packageVersion: "Package version",
 	gitCommit: "Git commit",
@@ -149,7 +157,7 @@ const footerSegmentSettingDescriptions: Record<FooterSegmentSettingId, string> =
 	gitBranch: "Show or hide the git branch name on the left.",
 	gitStatus: "Show or hide git status icons and ahead/behind markers.",
 	gitCounts:
-		"Show numeric ahead/behind and stash counts (requires the Git status segment to be enabled).",
+		"Show file status, ahead/behind and stash counts (requires the Git status segment to be enabled).",
 	sessionDuration: "Show session running time on the left, after the runtime.",
 	username: "Show user@hostname on the left.",
 	time: "Show the current time (HH:MM) on the right.",
@@ -157,6 +165,7 @@ const footerSegmentSettingDescriptions: Record<FooterSegmentSettingId, string> =
 	runtime: "Show or hide the detected runtime/language segment on the left.",
 	context: "Show or hide context usage on the right.",
 	tokens: "Show or hide input/output token counts on the right.",
+	cacheHit: "Show the latest reply's cache hit rate independently; show 0.0% for zero hits and -- for no data.",
 	cost: "Show or hide session cost on the right.",
 	packageVersion:
 		"Show the project’s own manifest version (package.json, Cargo.toml, pyproject.toml, …). Distinct from the runtime segment, which shows the installed toolchain version.",
@@ -222,6 +231,27 @@ const sectionLabels: Record<SettingsSection, string> = {
 	layout: "Layout",
 	builtinSegments: "Built-in segments",
 	extensionSegments: "Extension segments",
+	telemetry: "Telemetry",
+};
+
+const telemetryLabels: Record<keyof TelemetryConfig, string> = {
+	enabled: "Telemetry",
+	tps: "TPS",
+	ttft: "TTFT",
+	duration: "Total duration",
+	tokens: "Token counts",
+	stalls: "Stall details",
+	cost: "Cost rate",
+};
+
+const telemetryDescriptions: Record<keyof TelemetryConfig, string> = {
+	enabled: "Show local performance statistics after each task; no network reporting.",
+	tps: "Output tokens divided by the sum of model request durations, including first-token wait.",
+	ttft: "Time from the first request to the first text, thinking, or tool-call delta.",
+	duration: "Total task duration, including tools and retries.",
+	tokens: "Total input/output tokens; input splits uncached U (including cache writes) and cached reads R.",
+	stalls: "Count and total duration of stream gaps lasting at least one second.",
+	cost: "Provider cost divided by total tokens, in dollars per million tokens.",
 };
 
 const thirdPartyStatusSettingPrefix = "thirdPartyStatus:";
@@ -250,6 +280,7 @@ function isFooterSegmentSettingId(value: string): value is FooterSegmentSettingI
 		value === "runtime" ||
 		value === "context" ||
 		value === "tokens" ||
+		value === "cacheHit" ||
 		value === "cost" ||
 		value === "username" ||
 		value === "time" ||
@@ -335,17 +366,18 @@ function footerSegmentPatch(
 	return { [id]: value === "enabled" } as Partial<FooterSegmentsConfig>;
 }
 
-export function usageText(): string {
-	return 'Usage: /zentui [editor|statusline|messages|copy-friendly|pulse] [enable|disable|toggle] or /zentui format "<template>"';
+export function usageText(language: SettingsLanguage = "zh-CN"): string {
+	return settingsText('Usage: /zentui [editor|statusline|messages|copy-friendly|pulse] [enable|disable|toggle] or /zentui format "<template>"', language);
 }
 
 function featureNotification(
 	feature: FeatureSettingId,
 	value: FeatureState,
 	result: { applied: boolean; reason?: string },
+	language: SettingsLanguage,
 ): string {
-	const base = `${featureSettingLabels[feature]}: ${value}`;
-	return result.applied ? base : `${base} (${result.reason ?? "reload Pi to apply this change"})`;
+	const base = `${settingsText(featureSettingLabels[feature], language)}: ${settingsText(value, language)}`;
+	return result.applied ? base : `${base} (${settingsText(result.reason ?? "reload Pi to apply this change", language)})`;
 }
 
 export type DirectCommand =
@@ -425,6 +457,7 @@ function buildItems(
 	section: SettingsSection,
 	config: PolishedTuiConfig,
 	activeStatuses: ReadonlyMap<string, string>,
+	openTuiLoaded: boolean,
 ): SettingItem[] {
 	if (section === "coloring") {
 		return (Object.keys(colorSettingLabels) as ColorSettingId[]).map((key) => ({
@@ -446,6 +479,13 @@ function buildItems(
 				values: featureStateValues,
 			}),
 		);
+		items.unshift({
+			id: "language",
+			label: "Language / 语言",
+			description: "Choose the language of Zentui settings. Changes apply immediately.",
+			currentValue: config.language,
+			values: ["zh-CN", "en"],
+		});
 		items.push({
 			id: FOOTER_PULSE_SETTING_ID,
 			label: "Footer pulse animation",
@@ -505,14 +545,40 @@ function buildItems(
 		];
 	}
 
-	if (section === "builtinSegments") {
-		return (Object.keys(footerSegmentSettingLabels) as FooterSegmentSettingId[]).map((key) => ({
-			id: footerSegmentSettingId(key),
-			label: footerSegmentSettingLabels[key],
-			description: footerSegmentSettingDescriptions[key],
-			currentValue: featureValue(config.footerSegments[key]),
+	if (section === "telemetry") {
+		if (openTuiLoaded) return [{
+			id: "telemetry:owned",
+			label: "Telemetry",
+			description: "Telemetry is managed by /open-tui; its original tracking, display, and settings are preserved.",
+			currentValue: "Managed by /open-tui",
+		}];
+		return (Object.keys(telemetryLabels) as (keyof TelemetryConfig)[]).map((key) => ({
+			id: `telemetry:${key}`,
+			label: telemetryLabels[key],
+			description: telemetryDescriptions[key],
+			currentValue: featureValue(config.telemetry[key]),
 			values: featureStateValues,
 		}));
+	}
+
+	if (section === "builtinSegments") {
+		return (Object.keys(footerSegmentSettingLabels) as FooterSegmentSettingId[]).map((key) => {
+			if (key === "cacheHit" && openTuiLoaded) {
+				return {
+					id: footerSegmentSettingId(key),
+					label: footerSegmentSettingLabels[key],
+					description: "Cache hit rate is managed by /open-tui; its original display conditions and settings are preserved.",
+					currentValue: "Managed by /open-tui",
+				};
+			}
+			return {
+				id: footerSegmentSettingId(key),
+				label: footerSegmentSettingLabels[key],
+				description: footerSegmentSettingDescriptions[key],
+				currentValue: featureValue(config.footerSegments[key]),
+				values: featureStateValues,
+			};
+		});
 	}
 
 	const statuses = Array.from(activeStatuses.entries()).sort(([a], [b]) =>
@@ -531,18 +597,19 @@ function buildItems(
 
 	return statuses.flatMap(([key, value]) => {
 		const sanitizedText = sanitizeExtensionStatusText(value);
-		const description = sanitizedText ? `Current status: ${sanitizedText}` : undefined;
+		const description = sanitizedText
+		? `${settingsText("Current status", config.language)}: ${sanitizedText}` : undefined;
 		return [
 			{
 				id: thirdPartyStatusSettingId(key, "placement"),
-				label: `${key} placement`,
+				label: `${key} ${settingsText("placement", config.language)}`,
 				description,
 				currentValue: getExtensionStatusPlacement(config, key),
 				values: extensionStatusPlacementValues,
 			},
 			{
 				id: thirdPartyStatusSettingId(key, "colorMode"),
-				label: `${key} color`,
+				label: `${key} ${settingsText("color", config.language)}`,
 				description,
 				currentValue: getExtensionStatusColorMode(config, key),
 				values: extensionStatusColorModeValues,
@@ -567,22 +634,23 @@ function previousSection(section: SettingsSection): SettingsSection {
 function formatSectionTabs(
 	activeSection: SettingsSection,
 	theme: ExtensionContext["ui"]["theme"],
+	language: SettingsLanguage,
 ): string {
 	const rendered = settingsSections.map((section) => {
-		const label = sectionLabels[section];
+		const label = settingsText(sectionLabels[section], language);
 		return section === activeSection ? theme.bold(label) : safeThemeFg(theme, "muted", label);
 	});
 	return `  ${rendered.join(safeThemeFg(theme, "muted", " / "))}`;
 }
 
-function withSectionFooter(lines: string[], theme: ExtensionContext["ui"]["theme"]): string[] {
+function withSectionFooter(lines: string[], theme: ExtensionContext["ui"]["theme"], language: SettingsLanguage): string[] {
 	const next = [...lines];
 	for (let index = next.length - 1; index >= 0; index -= 1) {
 		if (next[index]?.includes("Enter/Space")) {
 			next[index] = safeThemeFg(
 				theme,
 				"muted",
-				"  Enter/Space to change · Tab/Shift+Tab to switch sections · Esc to close",
+				settingsText("  Enter/Space to change · Tab/Shift+Tab to switch sections · Esc to close", language),
 			);
 			break;
 		}
@@ -592,10 +660,11 @@ function withSectionFooter(lines: string[], theme: ExtensionContext["ui"]["theme
 
 export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCommandDeps): void {
 	pi.registerCommand("zentui", {
-		description: "Configure Zentui",
+		description: settingsText("Configure Zentui", deps.getConfig().language),
 		getArgumentCompletions: argumentCompletions,
 		handler: async (_args, ctx) => {
 			const args = typeof _args === "string" ? _args : "";
+			const t = (text: string) => settingsText(text, deps.getConfig().language);
 
 			const formatCommand = parseFormatCommand(args);
 			if (formatCommand) {
@@ -604,14 +673,14 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 					deps.requestRender();
 					if (ctx.hasUI) {
 						if (formatCommand.value === undefined) {
-							ctx.ui.notify("Footer format cleared (using default layout)", "info");
+							ctx.ui.notify(t("Footer format cleared (using default layout)"), "info");
 						} else {
-							ctx.ui.notify(`Footer format: ${formatCommand.value}`, "info");
+							ctx.ui.notify(`${t("Footer format")}: ${formatCommand.value}`, "info");
 						}
 					}
 				} catch (error) {
 					const message = error instanceof Error ? error.message : String(error);
-					if (ctx.hasUI) ctx.ui.notify(`Could not update footer format: ${message}`, "error");
+					if (ctx.hasUI) ctx.ui.notify(`${t("Could not update footer format")}: ${message}`, "error");
 				}
 				return;
 			}
@@ -620,7 +689,7 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 				const command = parseDirectCommand(args, deps.getConfig());
 				if (command.kind === "invalid" || command.kind === "removed") {
 					if (ctx.hasUI) {
-						ctx.ui.notify(command.kind === "removed" ? command.message : usageText(), "warning");
+						ctx.ui.notify(command.kind === "removed" ? t(command.message) : usageText(deps.getConfig().language), "warning");
 					}
 					return;
 				}
@@ -629,7 +698,7 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 						deps.setAnimations({ footerPulse: command.enabled });
 						deps.requestRender();
 						if (ctx.hasUI) {
-							ctx.ui.notify(`Footer pulse animation: ${featureValue(command.enabled)}`, "info");
+							ctx.ui.notify(`${t("Footer pulse animation")}: ${t(featureValue(command.enabled))}`, "info");
 						}
 						return;
 					}
@@ -637,13 +706,13 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 					deps.requestRender();
 					if (ctx.hasUI) {
 						ctx.ui.notify(
-							featureNotification(command.feature, featureValue(command.enabled), result),
+							featureNotification(command.feature, featureValue(command.enabled), result, deps.getConfig().language),
 							"info",
 						);
 					}
 				} catch (error) {
 					const message = error instanceof Error ? error.message : String(error);
-					if (ctx.hasUI) ctx.ui.notify(`Could not update Zentui settings: ${message}`, "error");
+					if (ctx.hasUI) ctx.ui.notify(`${t("Could not update Zentui settings")}: ${message}`, "error");
 				}
 				return;
 			}
@@ -657,22 +726,42 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 				const applyFeatureChange = (id: FeatureSettingId, newValue: FeatureState) => {
 					const result = deps.setUiFeatures(featurePatch(id, newValue), ctx);
 					deps.requestRender();
-					ctx.ui.notify(featureNotification(id, newValue, result), "info");
+					ctx.ui.notify(featureNotification(id, newValue, result, deps.getConfig().language), "info");
 					tui.requestRender();
 				};
 				let settingsList: SettingsList;
-				const makeSettingsList = () =>
-					new SettingsList(
-						buildItems(activeSection, deps.getConfig(), deps.getActiveExtensionStatuses()),
+				const displayValue = (value: string) => value === "zh-CN" ? "简体中文" : value === "en" ? "English" : t(value);
+				const makeSettingsList = () => {
+					const items = buildItems(activeSection, deps.getConfig(), deps.getActiveExtensionStatuses(),
+						pi.getCommands().some((command) => command.source === "extension" && command.name === "open-tui"));
+					return new SettingsList(
+						items.map((item) => ({
+							...item,
+							label: t(item.label),
+							description: item.description ? t(item.description) : undefined,
+							currentValue: displayValue(item.currentValue),
+							values: item.values?.map(displayValue),
+						})),
 						8,
 						settingsListTheme,
-						(id, newValue) => {
+						(id, selectedValue) => {
+							const newValue = items.find((item) => item.id === id)?.values?.find(
+								(value) => displayValue(value) === selectedValue);
+							if (newValue === undefined) return;
 							try {
+								if (id === "language" && isSettingsLanguage(newValue)) {
+									deps.setLanguage(newValue);
+									settingsList = makeSettingsList();
+									deps.requestRender();
+									tui.requestRender();
+									ctx.ui.notify(`${t("Language saved")}: ${newValue === "zh-CN" ? "简体中文" : "English"}`, "info");
+									return;
+								}
 								if (isColorSettingId(id) && isColorSource(newValue)) {
 									deps.setColorSources(patchForSetting(id, newValue));
-									settingsList.updateValue(id, newValue);
+									settingsList.updateValue(id, displayValue(newValue));
 									deps.requestRender();
-									ctx.ui.notify(`${colorSettingLabels[id]}: ${newValue}`, "info");
+									ctx.ui.notify(`${t(colorSettingLabels[id])}: ${t(newValue)}`, "info");
 									tui.requestRender();
 									return;
 								}
@@ -688,7 +777,7 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 												applyFeatureChange(id, newValue);
 											} catch (error) {
 												const message = error instanceof Error ? error.message : String(error);
-												ctx.ui.notify(`Could not update Zentui settings: ${message}`, "error");
+												ctx.ui.notify(`${t("Could not update Zentui settings")}: ${message}`, "error");
 											}
 										};
 										deps.sessionLifecycle.defer(applyEditorChange);
@@ -696,43 +785,43 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 									}
 
 									applyFeatureChange(id, newValue);
-									settingsList.updateValue(id, newValue);
+									settingsList.updateValue(id, displayValue(newValue));
 									return;
 								}
 
 								if (isLayoutSettingId(id)) {
 									if (id === "contextStyle" && isContextStyle(newValue)) {
 										deps.setContextStyle(newValue);
-										settingsList.updateValue(id, newValue);
+										settingsList.updateValue(id, displayValue(newValue));
 										deps.requestRender();
-										ctx.ui.notify(`Context style: ${newValue}`, "info");
+										ctx.ui.notify(`${t("Context style")}: ${t(newValue)}`, "info");
 										tui.requestRender();
 										return;
 									}
 
 									if (id === "separator" && isSeparatorStyle(newValue)) {
 										deps.setSeparator(newValue);
-										settingsList.updateValue(id, newValue);
+										settingsList.updateValue(id, displayValue(newValue));
 										deps.requestRender();
-										ctx.ui.notify(`Separator: ${newValue}`, "info");
+										ctx.ui.notify(`${t("Separator")}: ${t(newValue)}`, "info");
 										tui.requestRender();
 										return;
 									}
 
 									if (id === "pathDisplay" && isPathDisplayMode(newValue)) {
 										deps.setPathDisplay({ mode: newValue });
-										settingsList.updateValue(id, newValue);
+										settingsList.updateValue(id, displayValue(newValue));
 										deps.requestRender();
-										ctx.ui.notify(`Path display: ${newValue}`, "info");
+										ctx.ui.notify(`${t("Path display")}: ${t(newValue)}`, "info");
 										tui.requestRender();
 										return;
 									}
 
 									if (id === "pathDepth" && isPathDepthValue(newValue)) {
 										deps.setPathDisplay({ depth: Number(newValue) });
-										settingsList.updateValue(id, newValue);
+										settingsList.updateValue(id, displayValue(newValue));
 										deps.requestRender();
-										ctx.ui.notify(`Path depth: ${newValue}`, "info");
+										ctx.ui.notify(`${t("Path depth")}: ${newValue}`, "info");
 										tui.requestRender();
 										return;
 									}
@@ -741,30 +830,40 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 										const maxLength = parseGitBranchLengthValue(newValue);
 										if (maxLength === undefined) return;
 										deps.setGitBranch({ maxLength });
-										settingsList.updateValue(id, newValue);
+										settingsList.updateValue(id, displayValue(newValue));
 										deps.requestRender();
-										ctx.ui.notify(`Branch length: ${newValue}`, "info");
+										ctx.ui.notify(`${t("Branch length")}: ${t(newValue)}`, "info");
 										tui.requestRender();
 										return;
 									}
 
 									if (id === "iconMode" && isIconMode(newValue)) {
 										deps.setIconMode(newValue);
-										settingsList.updateValue(id, newValue);
+										settingsList.updateValue(id, displayValue(newValue));
 										deps.requestRender();
-										ctx.ui.notify(`Icon mode: ${newValue}`, "info");
+										ctx.ui.notify(`${t("Icon mode")}: ${t(newValue)}`, "info");
 										tui.requestRender();
 									}
+									return;
+								}
+
+								if (id.startsWith("telemetry:") && isFeatureState(newValue)) {
+									const key = id.slice("telemetry:".length);
+									if (!Object.hasOwn(telemetryLabels, key)) return;
+									deps.setTelemetry({ [key]: newValue === "enabled" });
+									settingsList.updateValue(id, displayValue(newValue));
+									deps.requestRender();
+									tui.requestRender();
 									return;
 								}
 
 								const footerSegmentSetting = footerSegmentSettingFromId(id);
 								if (footerSegmentSetting && isFeatureState(newValue)) {
 									deps.setFooterSegments(footerSegmentPatch(footerSegmentSetting, newValue));
-									settingsList.updateValue(id, newValue);
+									settingsList.updateValue(id, displayValue(newValue));
 									deps.requestRender();
 									ctx.ui.notify(
-										`${footerSegmentSettingLabels[footerSegmentSetting]}: ${newValue}`,
+										`${t(footerSegmentSettingLabels[footerSegmentSetting])}: ${t(newValue)}`,
 										"info",
 									);
 									tui.requestRender();
@@ -773,9 +872,9 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 
 								if (id === FOOTER_PULSE_SETTING_ID && isFeatureState(newValue)) {
 									deps.setAnimations({ footerPulse: newValue === "enabled" });
-									settingsList.updateValue(id, newValue);
+									settingsList.updateValue(id, displayValue(newValue));
 									deps.requestRender();
-									ctx.ui.notify(`Footer pulse animation: ${newValue}`, "info");
+									ctx.ui.notify(`${t("Footer pulse animation")}: ${t(newValue)}`, "info");
 									tui.requestRender();
 									return;
 								}
@@ -786,10 +885,10 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 									isExtensionStatusPlacement(newValue)
 								) {
 									deps.setExtensionStatusPlacement(thirdPartyStatusSetting.key, newValue);
-									settingsList.updateValue(id, newValue);
+									settingsList.updateValue(id, displayValue(newValue));
 									deps.requestRender();
 									ctx.ui.notify(
-										`Third-party status ${thirdPartyStatusSetting.key} placement: ${newValue}`,
+										`${t("Third-party status")} ${thirdPartyStatusSetting.key} ${t("placement")}: ${t(newValue)}`,
 										"info",
 									);
 									tui.requestRender();
@@ -801,10 +900,10 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 									isExtensionStatusColorMode(newValue)
 								) {
 									deps.setExtensionStatusColorMode(thirdPartyStatusSetting.key, newValue);
-									settingsList.updateValue(id, newValue);
+									settingsList.updateValue(id, displayValue(newValue));
 									deps.requestRender();
 									ctx.ui.notify(
-										`Third-party status ${thirdPartyStatusSetting.key} color: ${newValue}`,
+										`${t("Third-party status")} ${thirdPartyStatusSetting.key} ${t("color")}: ${t(newValue)}`,
 										"info",
 									);
 									tui.requestRender();
@@ -813,11 +912,12 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 								settingsList = makeSettingsList();
 								tui.requestRender();
 								const message = error instanceof Error ? error.message : String(error);
-								ctx.ui.notify(`Could not update Zentui settings: ${message}`, "error");
+								ctx.ui.notify(`${t("Could not update Zentui settings")}: ${message}`, "error");
 							}
 						},
 						() => done(undefined),
 					);
+				};
 				settingsList = makeSettingsList();
 				const switchSection = (direction: "forward" | "backward") => {
 					activeSection =
@@ -837,9 +937,9 @@ export function registerZentuiSettingsCommand(pi: ExtensionAPI, deps: SettingsCo
 						);
 						return [
 							truncateToWidth(border, width, ""),
-							truncateToWidth(formatSectionTabs(activeSection, theme), width, ""),
+							truncateToWidth(formatSectionTabs(activeSection, theme, deps.getConfig().language), width, ""),
 							truncateToWidth(border, width, ""),
-							...withSectionFooter(settingsList.render(width), theme).map((line) =>
+							...withSectionFooter(settingsList.render(width), theme, deps.getConfig().language).map((line) =>
 								truncateToWidth(line, width, ""),
 							),
 							truncateToWidth(border, width, ""),

@@ -135,6 +135,15 @@ const RUNTIME_ASCII_SYMBOLS: Record<string, string> = {
 	java: "java",
 };
 
+const TELEMETRY_GLYPHS = {
+	nerd: { speed: "󰓅", latency: "", done: "", input: "", output: "", stall: "", cost: "" },
+	ascii: { speed: ">", latency: "~", done: "+", input: "↑", output: "↓", stall: "!", cost: "$" },
+};
+
+export function resolveTelemetryGlyphs(mode: IconMode) {
+	return TELEMETRY_GLYPHS[mode === "ascii" ? "ascii" : "nerd"];
+}
+
 export function isIconMode(value: unknown): value is IconMode {
 	return value === "auto" || value === "nerd" || value === "ascii";
 }

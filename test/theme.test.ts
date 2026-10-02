@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
-const THEME_URL = new URL("../themes/sakura-macaron.json", import.meta.url);
+const THEME_URL = new URL("../themes/muelsyse-macaron.json", import.meta.url);
 const SCHEMA_PATH = "dist/modes/interactive/theme/theme-schema.json";
 const SCHEMAS = [
   { label: "Pi 0.99.1 (.dev)", url: new URL(`../.dev/node_modules/@earendil-works/pi-coding-agent/${SCHEMA_PATH}`, import.meta.url) },

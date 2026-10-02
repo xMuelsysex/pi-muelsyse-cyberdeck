@@ -69,6 +69,16 @@ export type AnimationsConfig = {
 	footerPulse: boolean;
 };
 
+export type TelemetryConfig = {
+	enabled: boolean;
+	tps: boolean;
+	ttft: boolean;
+	duration: boolean;
+	tokens: boolean;
+	stalls: boolean;
+	cost: boolean;
+};
+
 export type FooterSegmentsConfig = {
 	cwd: boolean;
 	gitBranch: boolean;
@@ -79,6 +89,7 @@ export type FooterSegmentsConfig = {
 	runtime: boolean;
 	context: boolean;
 	tokens: boolean;
+	cacheHit: boolean;
 	cost: boolean;
 	sessionDuration: boolean;
 	username: boolean;
@@ -121,7 +132,14 @@ export type ExtensionStatusesConfig = {
 const DEFAULT_PROJECT_REFRESH_INTERVAL_MS = 60_000;
 const MIN_PROJECT_REFRESH_INTERVAL_MS = 5_000;
 
+export type SettingsLanguage = "zh-CN" | "en";
+
+export function isSettingsLanguage(value: unknown): value is SettingsLanguage {
+	return value === "zh-CN" || value === "en";
+}
+
 export type PolishedTuiConfig = {
+	language: SettingsLanguage;
 	projectRefreshIntervalMs: number;
 	footerFormat: string;
 	separator: SeparatorStyle;
@@ -166,6 +184,7 @@ export type PolishedTuiConfig = {
 	colorSources: ColorSourcesConfig;
 	features: UiFeaturesConfig;
 	animations: AnimationsConfig;
+	telemetry: TelemetryConfig;
 	footerSegments: FooterSegmentsConfig;
 	gitCommit: GitCommitConfig;
 	gitMetrics: GitMetricsConfig;
@@ -187,7 +206,7 @@ export const FOOTER_FORMAT_ALIASES: Record<string, string> = {
 	separator: "sep",
 };
 
-const configPath = join(getAgentDir(), "sakura-cyberdeck-zentui.json");
+const configPath = join(getAgentDir(), "muelsyse-cyberdeck-zentui.json");
 
 // ---------------------------------------------------------------------------
 // Defaults — the single source of truth. `defaultConfig` below is literally
@@ -217,7 +236,7 @@ const DEFAULT_COLORS: PolishedTuiConfig["colors"] = {
 	os: "#F7EEF8",
 	editorAccent: "bold #F2A7C6",
 	editorPrompt: "bold #F2A7C6",
-	editorBorder: "sakura-macaron-gradient",
+	editorBorder: "muelsyse-macaron-gradient",
 	editorModel: "bold #F2A7C6",
 	editorProvider: "#B8BEDD",
 	editorThinking: "#C7B8F5",
@@ -246,14 +265,25 @@ const DEFAULT_ANIMATIONS: AnimationsConfig = {
 	footerPulse: false,
 };
 
+const DEFAULT_TELEMETRY: TelemetryConfig = {
+	enabled: true,
+	tps: true,
+	ttft: true,
+	duration: true,
+	tokens: true,
+	stalls: true,
+	cost: true,
+};
+
 const DEFAULT_FOOTER_SEGMENTS: FooterSegmentsConfig = {
 	cwd: true,
 	gitBranch: true,
 	gitStatus: true,
-	gitCounts: false,
+	gitCounts: true,
 	runtime: true,
 	context: true,
 	tokens: true,
+	cacheHit: true,
 	cost: true,
 	sessionDuration: false,
 	username: false,
@@ -373,7 +403,7 @@ function stringValue(record: Record<string, unknown>, key: string): string | und
 
 function colorValue(record: Record<string, unknown>, key: string): string | undefined {
 	const value = stringValue(record, key);
-	if (key === "editorBorder" && value === "sakura-macaron-gradient") return value;
+	if (key === "editorBorder" && value === "muelsyse-macaron-gradient") return value;
 	return value !== undefined && isSupportedColorSpec(value) ? value : undefined;
 }
 
@@ -480,6 +510,13 @@ function normalizeAnimations(value: unknown): AnimationsConfig {
 	};
 }
 
+function normalizeTelemetry(value: unknown): TelemetryConfig {
+	const record = isRecord(value) ? value : {};
+	return Object.fromEntries(Object.entries(DEFAULT_TELEMETRY).map(([key, defaultValue]) =>
+		[key, typeof record[key] === "boolean" ? record[key] : defaultValue],
+	)) as TelemetryConfig;
+}
+
 function normalizeFooterSegments(record: Record<string, unknown>): FooterSegmentsConfig {
 	return {
 		cwd: footerSegmentValue(record, "cwd"),
@@ -489,6 +526,7 @@ function normalizeFooterSegments(record: Record<string, unknown>): FooterSegment
 		runtime: footerSegmentValue(record, "runtime"),
 		context: footerSegmentValue(record, "context"),
 		tokens: footerSegmentValue(record, "tokens"),
+		cacheHit: footerSegmentValue(record, "cacheHit"),
 		cost: footerSegmentValue(record, "cost"),
 		sessionDuration: footerSegmentValue(record, "sessionDuration"),
 		username: footerSegmentValue(record, "username"),
@@ -698,6 +736,7 @@ export function mergeConfig(parsed: unknown): PolishedTuiConfig {
 				colorModes: nullProtoRecord<ExtensionStatusColorMode>([]),
 			};
 	return {
+		language: isSettingsLanguage(config.language) ? config.language : "zh-CN",
 		projectRefreshIntervalMs: parseProjectRefreshIntervalMs(config.projectRefreshIntervalMs),
 		footerFormat: stringValue(config, "footerFormat") ?? DEFAULT_FOOTER_FORMAT,
 		separator: parseSeparatorStyle(config.separator),
@@ -717,6 +756,7 @@ export function mergeConfig(parsed: unknown): PolishedTuiConfig {
 			? normalizeUiFeatures(config.features)
 			: { ...DEFAULT_FEATURES },
 		animations: normalizeAnimations(config.animations),
+		telemetry: normalizeTelemetry(config.telemetry),
 		footerSegments: isRecord(config.footerSegments)
 			? normalizeFooterSegments(config.footerSegments)
 			: { ...DEFAULT_FOOTER_SEGMENTS },
@@ -847,6 +887,11 @@ export function saveFooterFormatPatch(value: string, path = configPath): Polishe
 	});
 }
 
+export function saveLanguagePatch(language: SettingsLanguage, path = configPath): PolishedTuiConfig {
+	if (!isSettingsLanguage(language)) throw new Error(`Unsupported settings language: ${language}`);
+	return mutateConfig(path, (record) => { record.language = language; });
+}
+
 export function saveIconsModePatch(mode: IconMode, path = configPath): PolishedTuiConfig {
 	return mutateConfig(path, (record) => {
 		const existing = isRecord(record.icons) ? { ...(record.icons as Record<string, unknown>) } : {};
@@ -951,6 +996,19 @@ export function saveExtensionStatusColorMode(
 			...existingExtensionStatuses,
 			colorModes: existingColorModes,
 		};
+	});
+}
+
+export function saveTelemetryPatch(
+	patch: Partial<TelemetryConfig>,
+	path = configPath,
+): PolishedTuiConfig {
+	return mutateConfig(path, (record) => {
+		const existing = isRecord(record.telemetry) ? { ...record.telemetry } : {};
+		for (const key of Object.keys(DEFAULT_TELEMETRY) as (keyof TelemetryConfig)[]) {
+			if (typeof patch[key] === "boolean") existing[key] = patch[key];
+		}
+		record.telemetry = existing;
 	});
 }
 

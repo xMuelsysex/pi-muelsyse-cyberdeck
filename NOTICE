@@ -2,5 +2,11 @@ This package includes a modified copy of pi-zentui by Luka.
 Original project: https://github.com/lmilojevicc/pi-zentui
 License: MIT. Full license text: licenses/pi-zentui-MIT.txt
 
-Modifications include the Sakura Macaron palette, truecolor gradient editor
+Modifications include the Muelsyse Macaron palette, truecolor gradient editor
 chrome, package-specific defaults, and package-specific configuration path.
+
+This package includes telemetry tracking and formatting adapted from pi-open-tui.
+Copyright (c) 2026 pi-open-tui contributors.
+License: MIT. Full license text: licenses/pi-open-tui-MIT.txt
+Modifications include local configuration/settings integration and avoiding duplicate
+telemetry when Open TUI is loaded.

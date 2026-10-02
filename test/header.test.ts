@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import sakuraCyberdeckHeader, { renderHeader, TOP_PADDING } from "../extensions/header/index";
+import muelsyseCyberdeckHeader, { renderHeader, TOP_PADDING } from "../extensions/header/index";
 
 const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
@@ -20,19 +21,25 @@ test("header height is fixed (does not grow with terminal height)", () => {
   const lines = renderHeader(120);
   assert.equal(lines.slice(0, TOP_PADDING).every((l) => l === ""), true);
   assert.ok(TOP_PADDING <= 1);
-  assert.ok(lines.length <= 14);
+  const artworkRows = readFileSync(new URL("../extensions/header/muelsyse-header.ansi", import.meta.url), "utf8")
+    .replace(/\n+$/, "").split("\n").length;
+  assert.equal(lines.length, TOP_PADDING + artworkRows + 4);
 });
 
 test("label truncates with an ellipsis at narrow widths", () => {
   const narrow = renderHeader(10).map(strip);
   assert.ok(narrow.some((l) => l.includes("…")));
   const wide = renderHeader(80).map(strip);
-  assert.ok(wide.some((l) => l.includes("SAKURA CYBERDECK")));
+  assert.ok(wide.some((l) => l.includes("MUELSYSE CYBERDECK")));
 });
 
 test("header only installs in TUI mode", async () => {
   const handlers = new Map<string, (event: unknown, ctx: unknown) => unknown>();
-  sakuraCyberdeckHeader({ on: (name: string, fn: never) => void handlers.set(name, fn) } as never);
+  muelsyseCyberdeckHeader({
+    on: (name: string, fn: never) => void handlers.set(name, fn),
+    registerCommand() {},
+    getCommands: () => [],
+  } as never);
   let installs = 0;
   const ui = { theme: { getColorMode: () => "truecolor" }, setHeader: (f: unknown) => void (f && installs++) };
   await handlers.get("session_start")!({}, { mode: "rpc", hasUI: true, ui });

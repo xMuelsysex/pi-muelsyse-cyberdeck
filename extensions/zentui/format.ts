@@ -253,17 +253,26 @@ export function getCachedContextUsage(
 	}
 }
 
-export function buildTokenLabel(totals: UsageTotals, cacheHitIcon = "󰆼"): string {
-	const parts: string[] = [];
-	if (totals.input) parts.push(`↑${formatCount(totals.input)}`);
-	if (totals.output) parts.push(`↓${formatCount(totals.output)}`);
+export function buildTokenLabel(totals: UsageTotals): string {
+	const uncached = totals.input + totals.cacheWrite;
+	const prompt = uncached + totals.cacheRead;
+	const input = totals.cacheRead > 0
+		? `${formatCount(prompt)} (U ${formatCount(uncached)} + R ${formatCount(totals.cacheRead)})`
+		: formatCount(prompt);
+	return `↑${input} ↓${formatCount(totals.output)}`;
+}
 
-	const hasCacheTokens = totals.cacheRead > 0 || totals.cacheWrite > 0;
-	if (hasCacheTokens && totals.latestCacheHitRate !== undefined) {
-		const cacheHitRate = `${totals.latestCacheHitRate.toFixed(1)}%`;
-		parts.push(cacheHitIcon ? `${cacheHitIcon} ${cacheHitRate}` : cacheHitRate);
-	}
-	return parts.length > 0 ? parts.join(" ") : "↑0 ↓0";
+export function buildCacheHitLabel(totals: UsageTotals, icon: string): string {
+	const rate = totals.latestCacheHitRate === undefined
+		? "--"
+		: `${totals.latestCacheHitRate.toFixed(1)}%`;
+	return icon ? `${icon} ${rate}` : rate;
+}
+
+export function cacheHitColor(value: number): "error" | "warning" | "success" {
+	if (value < 30) return "error";
+	if (value < 70) return "warning";
+	return "success";
 }
 
 export function buildCostLabel(totals: UsageTotals): string {

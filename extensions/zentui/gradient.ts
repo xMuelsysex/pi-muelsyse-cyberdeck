@@ -1,21 +1,71 @@
-import { fgAnsi, getColorMode, paintFg } from "../shared/color";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { colorToHex } from "@earendil-works/pi-tui";
+import { fgAnsi, getColorMode, hexToRgb, paintFg } from "../shared/color";
 
 export type RGB = readonly [number, number, number];
 
-export const SAKURA_MACARON_GRADIENT = "sakura-macaron-gradient";
-const SAKURA_MACARON_STOPS: readonly RGB[] = [
-	[242, 167, 198], // sakura pink  #F2A7C6
-	[252, 201, 185], // sakura-iro   #FCC9B9
+export const MUELSYSE_MACARON_GRADIENT = "muelsyse-macaron-gradient";
+const MUELSYSE_MACARON_STOPS: readonly [RGB, RGB, RGB, RGB, RGB] = [
+	[242, 167, 198], // pink         #F2A7C6
+	[252, 201, 185], // cherry pink  #FCC9B9
 	[239, 195, 230], // petal        #EFC3E6
 	[199, 184, 245], // lavender     #C7B8F5
 	[159, 211, 242], // sky macaron  #9FD3F2
 ];
+const MUELSYSE_MACARON_CACHE_KEY = MUELSYSE_MACARON_STOPS.map((stop) => stop.join(",")).join(";");
+
+type ActiveGradientPalette = {
+	colors: Theme["colors"];
+	stops: readonly RGB[];
+	cacheKey: string;
+	gauge: { warning: RGB; error: RGB; muted: RGB };
+};
+let activeTheme: Pick<Theme, "colors"> | undefined;
+let activePalette: ActiveGradientPalette | undefined;
 
 const RESET = "\x1b[0m";
 const GRADIENT_CACHE_LIMIT = 256;
 /** LRU of static (phase 0) gradients; animated frames are never cached. */
 const gradientCache = new Map<string, string>();
 let gradientCacheMode = getColorMode();
+
+export function setGradientTheme(theme?: Pick<Theme, "colors">): void {
+	activeTheme = theme;
+	activePalette = undefined;
+	gradientCache.clear();
+	gradientCacheMode = getColorMode();
+}
+
+function currentThemePalette(): ActiveGradientPalette | undefined {
+	const colors = activeTheme?.colors;
+	if (!colors) return undefined;
+	// Pi replaces the colors object when the active theme or terminal palette changes.
+	if (activePalette?.colors !== colors) {
+		// Muelsyse 的 Noctalia 模板保留这些角色映射和原有五段渐变。
+		const stops: readonly RGB[] = [
+			hexToRgb(colorToHex(colors.accent)),
+			hexToRgb(colorToHex(colors.mdCode)),
+			hexToRgb(colorToHex(colors.success)),
+			hexToRgb(colorToHex(colors.warning)),
+			hexToRgb(colorToHex(colors.mdLink)),
+		];
+		activePalette = {
+			colors,
+			stops,
+			cacheKey: stops.map((stop) => stop.join(",")).join(";"),
+			gauge: {
+				warning: hexToRgb(colorToHex(colors.warning)),
+				error: hexToRgb(colorToHex(colors.error)),
+				muted: hexToRgb(colorToHex(colors.muted)),
+			},
+		};
+	}
+	return activePalette;
+}
+
+function gradientCacheKey(text: string, paletteKey: string): string {
+	return `${paletteKey}\0${text}`;
+}
 
 /** Soft period for footer shimmer / pulse (ms). */
 const FOOTER_PULSE_PERIOD_MS = 1800;
@@ -46,8 +96,8 @@ function sampleStops(stops: readonly RGB[], position: number, phase = 0): RGB {
 	return mix(from, to, scaled - index);
 }
 
-function sampleSakuraGradient(position: number, phase = 0): RGB {
-	return sampleStops(SAKURA_MACARON_STOPS, position, phase);
+function sampleMuelsyseGradient(stops: readonly RGB[], position: number, phase = 0): RGB {
+	return sampleStops(stops, position, phase);
 }
 
 const graphemeSegmenter =
@@ -93,40 +143,56 @@ export function gradientCacheSize(): number {
 
 function paintPositions(text: string, colorAt: (position: number) => RGB): string {
 	if (getColorMode() === "none") return text;
-	const chars = splitGraphemes(text);
-	if (chars.length === 0) return text;
-	const span = Math.max(1, chars.length - 1);
+	// 保留 bold、背景、光标标记及链接，ANSI 控制序列不占渐变位置。
+	const parts = text.split(/(\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][\s\S]*?(?:\x07|\x1b\\))/g);
+	const count = parts.reduce((total, part, index) =>
+		total + (index % 2 === 0 ? splitGraphemes(part).length : 0), 0);
+	if (count === 0) return text;
+	const span = Math.max(1, count - 1);
 	let rendered = "";
-	for (let index = 0; index < chars.length; index++) {
-		const char = chars[index] ?? "";
-		rendered += char === " " ? char : `${fgAnsi(colorAt(index / span))}${char}`;
+	let position = 0;
+	for (let index = 0; index < parts.length; index++) {
+		const part = parts[index]!;
+		if (index % 2 === 1) {
+			rendered += part;
+			continue;
+		}
+		for (const char of splitGraphemes(part)) {
+			rendered += char === " " ? char : `${fgAnsi(colorAt(position / span))}${char}`;
+			position += 1;
+		}
 	}
 	return `${rendered}${RESET}`;
 }
 
-/** Render Sakura → sky gradient. Optional phase shifts the stops for shimmer. */
-export function renderSakuraGradient(text: string, phase = 0): string {
+/** Render the active Pi theme gradient. Optional phase shifts the stops for shimmer. */
+export function renderMuelsyseGradient(text: string, phase = 0): string {
 	if (!text) return text;
-	if (phase !== 0) return paintPositions(text, (pos) => sampleSakuraGradient(pos, phase));
-	const cached = cacheGet(text);
+	const palette = currentThemePalette();
+	const stops = palette?.stops ?? MUELSYSE_MACARON_STOPS;
+	if (phase !== 0) {
+		return paintPositions(text, (pos) => sampleMuelsyseGradient(stops, pos, phase));
+	}
+	const cacheKey = gradientCacheKey(text, palette?.cacheKey ?? MUELSYSE_MACARON_CACHE_KEY);
+	const cached = cacheGet(cacheKey);
 	if (cached !== undefined) return cached;
-	const rendered = paintPositions(text, (pos) => sampleSakuraGradient(pos));
-	cacheSet(text, rendered);
+	const rendered = paintPositions(text, (pos) => sampleMuelsyseGradient(stops, pos));
+	cacheSet(cacheKey, rendered);
 	return rendered;
 }
 
 /**
- * Box-frame gradient: sakura at BOTH ends, macaron spectrum through the middle.
- * Avoids the linear L→R look where the right corner jumps to sky cyan.
+ * Box-frame gradient: active-theme accent at both ends with its macaron spectrum through the middle.
  */
-export function renderSakuraFrameGradient(text: string): string {
+export function renderMuelsyseFrameGradient(text: string): string {
 	if (!text) return text;
-	const cacheKey = `\0frame\0${text}`;
+	const palette = currentThemePalette();
+	const stops = palette?.stops ?? MUELSYSE_MACARON_STOPS;
+	const cacheKey = `\0frame\0${gradientCacheKey(text, palette?.cacheKey ?? MUELSYSE_MACARON_CACHE_KEY)}`;
 	const cached = cacheGet(cacheKey);
 	if (cached !== undefined) return cached;
-	// 0 → 1 → 0 so left/right corners share sakura pink.
 	const rendered = paintPositions(text, (pos) =>
-		sampleSakuraGradient(pos <= 0.5 ? pos * 2 : (1 - pos) * 2),
+		sampleMuelsyseGradient(stops, pos <= 0.5 ? pos * 2 : (1 - pos) * 2),
 	);
 	cacheSet(cacheKey, rendered);
 	return rendered;
@@ -140,7 +206,7 @@ const ERROR_FILL: RGB = [255, 143, 163]; // solid coral
 const GAUGE_TRACK: RGB = [180, 168, 184]; // soft lilac track, readable on light + dark
 
 /**
- * Macaron gauge body (no frame). Fill walks the sakura palette for the normal
+ * Macaron gauge body (no frame). Fill walks the muelsyse palette for the normal
  * tier and uses a solid warning/error color otherwise; soft hotspot with phase.
  */
 export function renderMacaronGauge(
@@ -153,18 +219,23 @@ export function renderMacaronGauge(
 	const filled = Math.round((clamped / 100) * cells);
 	const phase = options.phase ?? 0;
 	const tier = options.tier ?? "normal";
+	const palette = currentThemePalette();
+	const stops = palette?.stops ?? MUELSYSE_MACARON_STOPS;
+	const warningFill = palette?.gauge.warning ?? WARNING_FILL;
+	const errorFill = palette?.gauge.error ?? ERROR_FILL;
+	const track = palette?.gauge.muted ?? GAUGE_TRACK;
 	let body = "";
 	for (let i = 0; i < cells; i++) {
 		if (i >= filled) {
-			body += paintFg(GAUGE_TRACK, "░");
+			body += paintFg(track, "░");
 			continue;
 		}
 		const base =
 			tier === "warning"
-				? WARNING_FILL
+				? warningFill
 				: tier === "error"
-					? ERROR_FILL
-					: sampleSakuraGradient(cells <= 1 ? 0 : i / Math.max(1, filled - 1), phase * 0.2);
+					? errorFill
+					: sampleMuelsyseGradient(stops, cells <= 1 ? 0 : i / Math.max(1, filled - 1), phase * 0.2);
 		const wave = 0.5 + 0.5 * Math.sin((i / cells + phase) * Math.PI * 2);
 		body += paintFg(mix(base, [255, 252, 250], wave * 0.15), "█");
 	}

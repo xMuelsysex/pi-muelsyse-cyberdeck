@@ -2,11 +2,11 @@ import { type Theme, UserMessageComponent } from "@earendil-works/pi-coding-agen
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { getColorMode, paintFg, type RGB } from "../shared/color";
 import type { PolishedTuiConfig } from "./config";
-import { renderSakuraFrameGradient } from "./gradient";
+import { renderMuelsyseFrameGradient } from "./gradient";
 import { installPrototypePatch } from "./prototype-patch-registry";
 
 /**
- * User prompt chrome: gradient hairlines above/below plus a sakura rail on the left.
+ * User prompt chrome: gradient hairlines above/below plus a muelsyse rail on the left.
  *
  * The message body is Pi's own UserMessageComponent render (markdown options, extension
  * markdown transformers, outputPad, OSC 133 prompt markers) at the reduced width, passed through
@@ -41,7 +41,7 @@ function railFor(config: PolishedTuiConfig | undefined): { text: string; columns
 }
 
 export function renderUserMessageCard(inner: readonly string[], width: number, rail: string): string[] {
-	const border = renderSakuraFrameGradient("─".repeat(width));
+	const border = renderMuelsyseFrameGradient("─".repeat(width));
 	const lines: string[] = [border];
 	for (const line of inner) lines.push(rail ? `${rail}${line}` : line);
 	lines.push(border);

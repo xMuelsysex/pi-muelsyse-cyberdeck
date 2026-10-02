@@ -5,12 +5,12 @@ import {
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
 import type { PolishedTuiConfig } from "./config";
-import { renderSakuraFrameGradient } from "./gradient";
+import { renderMuelsyseFrameGradient } from "./gradient";
 import { installPrototypePatch } from "./prototype-patch-registry";
 
 /**
  * Recolor the top/bottom DynamicBorder hairlines of Pi's model and settings selectors with the
- * sakura frame gradient. Only rows produced by a DynamicBorder child at the first/last position
+ * muelsyse frame gradient. Only rows produced by a DynamicBorder child at the first/last position
  * are touched, and only when they are a plain `─` run; anything else renders stock.
  */
 
@@ -43,7 +43,7 @@ export function patchSelectorBorderStyle(prototype: object): Cleanup {
 		const recolorLast = lastIsBorder && isHairline(rendered[last]);
 		if (!recolorFirst && !recolorLast) return rendered;
 		const lines = [...(rendered as string[])];
-		const gradient = renderSakuraFrameGradient("─".repeat(width));
+		const gradient = renderMuelsyseFrameGradient("─".repeat(width));
 		if (recolorFirst) lines[0] = gradient;
 		if (recolorLast) lines[last] = gradient;
 		return lines;

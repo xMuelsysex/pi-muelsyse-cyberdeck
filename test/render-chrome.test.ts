@@ -11,7 +11,7 @@ import type { PolishedTuiConfig } from "../extensions/zentui/config";
 import { patchSelectorBorderStyle } from "../extensions/zentui/selector-border";
 import {
 	applyThinkingLabel,
-	SAKURA_HIDDEN_THINKING_LABEL,
+	MUELSYSE_HIDDEN_THINKING_LABEL,
 } from "../extensions/zentui/thinking-message";
 import { installToolExecutionStyle } from "../extensions/zentui/tool-execution";
 import { installUserMessageStyle } from "../extensions/zentui/user-message";
@@ -253,7 +253,7 @@ test("thinking label uses the public setHiddenThinkingLabel API and fails safe",
 	const calls: Array<string | undefined> = [];
 	applyThinkingLabel({ ui: { setHiddenThinkingLabel: (label?: string) => calls.push(label) } });
 	applyThinkingLabel({ ui: { setHiddenThinkingLabel: (label?: string) => calls.push(label) } }, false);
-	assert.equal(strip(calls[0] ?? ""), SAKURA_HIDDEN_THINKING_LABEL);
+	assert.equal(strip(calls[0] ?? ""), MUELSYSE_HIDDEN_THINKING_LABEL);
 	assert.equal(calls[1], undefined);
 	assert.equal(calls.length, 2);
 	assert.doesNotThrow(() => applyThinkingLabel({ ui: {} }));

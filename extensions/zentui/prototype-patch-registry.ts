@@ -1,10 +1,11 @@
 // Pack-unique key: upstream pi-zentui uses "pi-zentui.prototype-patch-registry"; sharing it
 // would let the two packages clobber each other's records when both are installed.
 export const ZENTUI_PROTOTYPE_PATCH_REGISTRY = Symbol.for(
-	"pi-sakura-cyberdeck.zentui.prototype-patch-registry",
+	"pi-muelsyse-cyberdeck.zentui.prototype-patch-registry",
 );
 
 export type PrototypePatchAdapter =
+	| "open-tui-render"
 	| "user-message-render"
 	| "selector-border-render"
 	| "tool-execution-render"
@@ -76,7 +77,7 @@ function resolvePredecessor(target: PatchTarget, record: PatchRecord): Prototype
 }
 
 function createWrapper(target: PatchTarget, record: PatchRecord): PrototypeMethod {
-	return function sakuraPrototypeWrapper(this: unknown, ...args: unknown[]): unknown {
+	return function muelsysePrototypeWrapper(this: unknown, ...args: unknown[]): unknown {
 		const predecessor = resolvePredecessor(target, record);
 		if (!predecessor) return undefined;
 		const behavior = record.registration?.behavior;

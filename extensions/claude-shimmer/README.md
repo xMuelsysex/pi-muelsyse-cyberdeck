@@ -1,12 +1,12 @@
-# Claude Shimmer Sakura (bundled)
+# Claude Shimmer Muelsyse (bundled)
 
-Claude Code–style working spinner, recolored for sakura-macaron.
+Claude Code–style working spinner, recolored for muelsyse-macaron.
 
 ```text
 ✻ Whisking...  ( HIGH · ↓ ~1.2k tokens · 00:12 )
 ```
 
-- One verb per agent run (stable across tool rounds and retries), swept by a soft white highlight over sakura → sky
+- One verb per agent run (stable across tool rounds and retries), swept by a soft white highlight over muelsyse → sky
 - Fixed-width `...` dots, so the HUD never shifts
 - Status HUD: `( EFFORT · ↑/↓ N tokens · mm:ss )` with ` · ` separators
   - `↑` while waiting for the model, `↓` while it streams

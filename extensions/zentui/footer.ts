@@ -9,6 +9,8 @@ import {
 } from "./extension-status";
 import { parseFooterFormat, renderFormatSplit, stripOrphanSeparators } from "./footer-format";
 import {
+	buildCacheHitLabel,
+	cacheHitColor,
 	buildContextDisplayLabel,
 	buildCostLabel,
 	buildSessionDurationLabel,
@@ -26,9 +28,10 @@ import {
 	getCachedContextUsage,
 	getUsageTotals,
 } from "./format";
-import { pulsePhase, renderSakuraGradient } from "./gradient";
+import { pulsePhase, renderMuelsyseGradient } from "./gradient";
 import { resolveRuntimeSymbol } from "./icons";
 import type { LiveContextOverride } from "./live-context";
+import { cacheFullscreenSelection } from "./selection-cache";
 import type { FooterState } from "./state";
 import { renderStyleForSource } from "./style";
 
@@ -103,11 +106,12 @@ function prependStatusArea(base: string, statusText: string, separator: string):
 function composeBuiltInFooterContent(left: string, right: string, innerWidth: number): string {
 	const leftWidth = visibleWidth(left);
 	const rightWidth = visibleWidth(right);
-	return leftWidth >= innerWidth
-		? truncateToWidth(left, innerWidth, "")
-		: leftWidth + 1 + rightWidth <= innerWidth
-			? `${left}${" ".repeat(innerWidth - leftWidth - rightWidth)}${right}`
-			: truncateToWidth(left, innerWidth, "");
+	if (!right) return truncateToWidth(left, innerWidth, "");
+	if (leftWidth + 1 + rightWidth <= innerWidth) {
+		return `${left}${" ".repeat(innerWidth - leftWidth - rightWidth)}${right}`;
+	}
+	if (rightWidth >= innerWidth) return truncateToWidth(right, innerWidth, "");
+	return `${truncateToWidth(left, innerWidth - rightWidth - 1, "…")} ${right}`;
 }
 
 function composeFooterContent(
@@ -214,6 +218,7 @@ export function installFooter(
 	hooks: FooterHooks,
 ): void {
 	ctx.ui.setFooter((tui, theme, footerData) => {
+		const restoreSelection = cacheFullscreenSelection(tui);
 		hooks.setRequestRender(() => tui.requestRender());
 		hooks.setExtensionStatusesGetter?.(() => footerData.getExtensionStatuses());
 		const unsubscribeBranch = footerData.onBranchChange(() => {
@@ -238,6 +243,7 @@ export function installFooter(
 
 		return {
 			dispose: () => {
+				restoreSelection();
 				if (pulseTimer) clearInterval(pulseTimer);
 				pulseTimer = undefined;
 				unsubscribeBranch();
@@ -266,7 +272,7 @@ export function installFooter(
 			const separator =
 				config.separator === "none"
 					? separatorRaw
-					: renderSakuraGradient(separatorRaw, phase * 0.5);
+					: renderMuelsyseGradient(separatorRaw, phase * 0.5);
 			const innerWidth = Math.max(1, width - 2);
 			const cwdPlain = formatCwdLabel(ctx.cwd, config.icons.cwd, {
 				mode: config.pathDisplay.mode,
@@ -275,7 +281,7 @@ export function installFooter(
 			const cwdLabel =
 				iconMode === "ascii"
 					? renderStyleForSource(theme, colorSource, config.colors.cwd, cwdPlain)
-					: renderSakuraGradient(cwdPlain, phase * 0.25);
+					: renderMuelsyseGradient(cwdPlain, phase * 0.25);
 			// Pi's footer data provider watches .git/HEAD itself; prefer it over our last scan.
 			const liveBranch = footerData.getGitBranch();
 			const detachedHead =
@@ -330,13 +336,22 @@ export function installFooter(
 				totalsCache ??= getUsageTotals(ctx);
 				return totalsCache;
 			};
-			const tokensSegment = () =>
-				renderStyleForSource(
-					theme,
-					colorSource,
-					config.colors.tokens,
-					buildTokenLabel(totals(), config.icons.cacheHit),
+			const tokensSegment = () => {
+				const usage = totals();
+				const tokens = renderStyleForSource(
+					theme, colorSource, config.colors.tokens, buildTokenLabel(usage),
 				);
+				return tokens;
+			};
+			const cacheHitSegment = () => {
+				if (!config.footerSegments.cacheHit) return "";
+				const usage = totals();
+				const cache = buildCacheHitLabel(usage,
+					config.icons.cacheHit ? `${config.icons.cacheHit} Cache` : "Cache");
+				const color = usage.latestCacheHitRate === undefined
+					? "muted" : cacheHitColor(usage.latestCacheHitRate);
+				return theme.fg(color, cache);
+			};
 			const costSegment = () =>
 				renderStyleForSource(theme, colorSource, config.colors.cost, buildCostLabel(totals()));
 			const gitColor = (text: string) =>
@@ -345,22 +360,18 @@ export function installFooter(
 				renderStyleForSource(theme, colorSource, config.colors.gitStatus, text);
 			const gitIcon = config.icons.git ? gitColor(config.icons.git) : "";
 			const gitCounts = config.footerSegments.gitCounts;
-			const stashLabel =
-				state.stashed > 0
-					? gitCounts
-						? `${config.icons.stashed}${state.stashed}`
-						: config.icons.stashed
-					: "";
-			const allStatus = [
-				state.conflicted > 0 ? config.icons.conflicted : "",
-				stashLabel,
-				state.deleted > 0 ? config.icons.deleted : "",
-				state.renamed > 0 ? config.icons.renamed : "",
-				state.modified > 0 ? config.icons.modified : "",
-				state.typechanged > 0 ? config.icons.typechanged : "",
-				state.staged > 0 ? config.icons.staged : "",
-				state.untracked > 0 ? config.icons.untracked : "",
-			].join("");
+			const statusCount = (icon: string, count: number) =>
+				count > 0 ? `${icon}${gitCounts ? count : ""}` : "";
+			const statusParts = [
+				statusCount(config.icons.conflicted, state.conflicted),
+				statusCount(config.icons.stashed, state.stashed),
+				statusCount(config.icons.deleted, state.deleted),
+				statusCount(config.icons.renamed, state.renamed),
+				statusCount(config.icons.modified, state.modified),
+				statusCount(config.icons.typechanged, state.typechanged),
+				statusCount(config.icons.staged, state.staged),
+				statusCount(config.icons.untracked, state.untracked),
+			].filter(Boolean);
 			const aheadBehind = (() => {
 				if (state.ahead > 0 && state.behind > 0) {
 					return gitCounts
@@ -373,11 +384,10 @@ export function installFooter(
 					return gitCounts ? `${config.icons.behind}${state.behind}` : config.icons.behind;
 				return "";
 			})();
+			const allStatus = [...statusParts, aheadBehind].filter(Boolean).join(gitCounts ? " " : "");
 			const statusBlock = state.gitUnavailable
 				? gitStatusColor("[git n/a]")
-				: allStatus || aheadBehind
-					? gitStatusColor(`[${allStatus}${aheadBehind}]`)
-					: "";
+				: allStatus ? gitStatusColor(`[${allStatus}]`) : "";
 			const gitStateLabel = state.gitStateLabel ?? "";
 			const gitStateBlock = gitStateLabel ? gitStatusColor(gitStateLabel) : "";
 			const renderVariable = (name: string): string => {
@@ -429,7 +439,7 @@ export function installFooter(
 									config.colors.os,
 									formatOsLabel(config.icons.os, iconMode),
 								)
-							: renderSakuraGradient(
+							: renderMuelsyseGradient(
 									formatOsLabel(config.icons.os, iconMode),
 									(phase + 0.4) % 1,
 								);
@@ -443,7 +453,9 @@ export function installFooter(
 					case "context":
 						return contextSegment();
 					case "tokens":
-						return tokensSegment();
+						return [tokensSegment(), cacheHitSegment()].filter(Boolean).join(" ");
+					case "cache_hit":
+						return cacheHitSegment();
 					case "cost":
 						return costSegment();
 					case "package":
@@ -610,7 +622,7 @@ export function installFooter(
 			const osSegment = config.footerSegments.os
 				? iconMode === "ascii"
 					? renderStyleForSource(theme, colorSource, config.colors.os, osPlain)
-					: renderSakuraGradient(osPlain, (phase + 0.4) % 1)
+					: renderMuelsyseGradient(osPlain, (phase + 0.4) % 1)
 				: "";
 			const left = [
 				osSegment,
@@ -634,14 +646,22 @@ export function installFooter(
 						formatTimeLabel(config.icons.time),
 					)
 				: "";
-			const right = [
+			let right = [
 				config.footerSegments.context ? contextSegment() : "",
 				config.footerSegments.tokens ? tokensSegment() : "",
+				cacheHitSegment(),
 				config.footerSegments.cost ? costSegment() : "",
 				timeSegment,
 			]
 				.filter(Boolean)
 				.join(separator);
+
+			if (visibleWidth(right) >= innerWidth && config.footerSegments.tokens) {
+				const usage = totals();
+				const compactTokens = renderStyleForSource(theme, colorSource, config.colors.tokens,
+					buildTokenLabel({ ...usage, input: usage.input + usage.cacheRead, cacheRead: 0 }));
+				right = right.replace(tokensSegment(), compactTokens);
+			}
 
 			let contentLeft = left;
 			let contentMiddle = "";
@@ -679,8 +699,8 @@ export function installFooter(
 				separator,
 				innerWidth,
 			);
-			const body = width > 2 ? ` ${truncateToWidth(content, width - 2, "")} ` : content;
-			return truncateToWidth(body, width, "");
+			const body = width > 2 ? ` ${content} ` : content;
+			return visibleWidth(body) <= width ? body : truncateToWidth(body, width, "");
 		}
 	});
 }

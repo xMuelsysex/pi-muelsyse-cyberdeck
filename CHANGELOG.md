@@ -1,7 +1,7 @@
 # Changelog
 
-All notable changes to pi-sakura-cyberdeck. After updating, Pi shows the newest
-entry once above the editor; run `/sakura-changelog` to read this file inside Pi.
+All notable changes to pi-muelsyse-cyberdeck. After updating, Pi shows the newest
+entry once above the editor; run `/muelsyse-changelog` to read this file inside Pi.
 
 ## [1.2.0] - 2026-09-30
 
@@ -18,9 +18,9 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 - **Fixed** the working HUD being stuck at `↓ 1 token` on Anthropic models, and "done in 0s" after multi-step runs.
 - **Safer git**: no more `index.lock` collisions with the agent's own git commands; far fewer git processes.
 - **Removed** the obsolete fixed-editor compositor (~1,950 lines); use Pi's native `"tuiMode": "fullscreen"`.
-- **Matrix rain is now opt-in** (`/sakura-matrix on`) and no longer fights the shimmer.
+- **Matrix rain is now opt-in** (`/muelsyse-matrix on`) and no longer fights the shimmer.
 - **256-color terminals and `NO_COLOR`** are now respected by every effect.
-- **New**: this what's-new notice after updates, and `/sakura-changelog` to read the changelog inside Pi.
+- **New**: this what's-new notice after updates, and `/muelsyse-changelog` to read the changelog inside Pi.
 
 ### Fixed — editor, footer and settings (Zentui)
 
@@ -30,7 +30,7 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 - An extension status with a key such as `constructor` or `__proto__` crashed every footer render.
 - Settings changes (enabling git commit/metrics, package version, footer format, icon mode) did not apply until the next refresh or restart; they now apply immediately.
 - Built-in defaults disagreed with what users actually got (refresh interval, footer format, icons). Defaults now come from one place.
-- A corrupt `sakura-cyberdeck-zentui.json` silently reset every setting to defaults. You now get a warning naming the file and the JSON error, and the file is never overwritten until fixed.
+- A corrupt `muelsyse-cyberdeck-zentui.json` silently reset every setting to defaults. You now get a warning naming the file and the JSON error, and the file is never overwritten until fixed.
 - `$sep` in a custom `footerFormat` always rendered ` | ` regardless of the separator setting.
 - Numbers from 999,500 to 999,999 were shown as `1000k` (now `1.0M`).
 - A `"bold accent"` style spec dropped the theme color.
@@ -44,11 +44,11 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 ### Fixed — tool cards, messages and thinking
 
 - `!cmd` output: expanded output was capped at ~19 lines, the bottom border was drawn as a second "BASH · COMPLETE" header, output lines that looked like box edges or `───` rules were replaced by frames, and failed or cancelled commands were labelled `✓ COMPLETE`. `!cmd` output is now stock Pi.
-- Tool card bodies were rewritten: syntax and word-diff highlighting was lost, lines starting with `ok`/`Successfully`/`error` got ✓/× glyphs (which were copied with the text), lines starting with `read`/`edit`/`snake_case` words lost their indentation, long lines lost a trailing `...`, expanded output was capped at 200 lines, and collapsed bodies could be replaced by summaries. Bodies are now passed through byte-for-byte inside the sakura frame.
+- Tool card bodies were rewritten: syntax and word-diff highlighting was lost, lines starting with `ok`/`Successfully`/`error` got ✓/× glyphs (which were copied with the text), lines starting with `read`/`edit`/`snake_case` words lost their indentation, long lines lost a trailing `...`, expanded output was capped at 200 lines, and collapsed bodies could be replaced by summaries. Bodies are now passed through byte-for-byte inside the muelsyse frame.
 - Diff lines lost their indentation around line-number width changes (e.g. lines 95–105).
 - Tool card status (running / done / failed) was guessed from the text; it now comes from the tool's real state.
 - Clicking a tool card to expand it in fullscreen mode hit the wrong row.
-- Clicking a thinking block to show/hide it stopped working in fullscreen mode, per-message thinking toggles were ignored, and visible thinking was cut to 16 lines. Thinking is now stock Pi; hidden thinking shows a sakura `✦ Thought` label.
+- Clicking a thinking block to show/hide it stopped working in fullscreen mode, per-message thinking toggles were ignored, and visible thinking was cut to 16 lines. Thinking is now stock Pi; hidden thinking shows a muelsyse `✦ Thought` label.
 - User messages lost ordered-list numbering (`1)`), backslash escapes and other extensions' markdown transforms. They are now Pi's own rendering inside the rail.
 - Prototype patches could leave stale copies behind after uninstall, could stack on reload, and clashed with the upstream `pi-zentui` package's registry.
 
@@ -68,7 +68,7 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 
 - Matrix listened to `session_switch`, an event Pi removed in 0.65.
 - Matrix and shimmer both drove Pi's working indicator; switching matrix off mid-run reset the shimmer to Pi's default spinner.
-- `/sakura-matrix preview` claimed "5 seconds" but did nothing while disabled or outside the TUI, and stopped the rain for the rest of a running turn.
+- `/muelsyse-matrix preview` claimed "5 seconds" but did nothing while disabled or outside the TUI, and stopped the rain for the rest of a running turn.
 - A failed matrix settings write left the in-memory state changed without stopping the rain or telling you.
 - The header's top padding grew with terminal height (19 blank lines at 50 rows) and changed on every vertical resize; it is now a fixed single line.
 - Theme `dim` text failed WCAG AA contrast (3.5:1 → 4.7:1); muted borders are more visible.
@@ -93,11 +93,11 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 
 ### Changed
 
-- **Sakura Matrix is off by default** and is now a rain widget only (it no longer changes the working message or indicator). Turn it on with `/sakura-matrix on`; saved settings are kept.
-- New `/sakura-matrix` subcommands: `help`, `height N`; clearer validation and "not saved" messages.
+- **Muelsyse Matrix is off by default** and is now a rain widget only (it no longer changes the working message or indicator). Turn it on with `/muelsyse-matrix on`; saved settings are kept.
+- New `/muelsyse-matrix` subcommands: `help`, `height N`; clearer validation and "not saved" messages.
 - The footer pulse animation is opt-in: `/zentui pulse on` (setting `animations.footerPulse`).
 - New switch `features.messageStyle` (`/zentui messages on|off`) controls message and tool styling independently of the editor. Existing configs keep their previous look: if you had the editor turned off, message styling stays off until you enable it.
-- Tool cards keep the sakura frame and status rail, but edit/self-rendered tools and image results use Pi's stock rendering.
+- Tool cards keep the muelsyse frame and status rail, but edit/self-rendered tools and image results use Pi's stock rendering.
 - The "Thought trail" tree is gone; hidden thinking shows a `✦ Thought` label.
 - Header height is fixed; the header is only installed in the interactive TUI.
 - Runtime segment detects bun, deno, node, python, go, rust, ruby and java (~50 rarely used runtimes removed). Package version reads `package.json`, `Cargo.toml`, `pyproject.toml` and `composer.json`.
@@ -114,7 +114,7 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 ### Added
 
 - A one-time "what's new" notice above the editor after installing or updating (hidden after your next message).
-- `/sakura-changelog [version]` — scrollable changelog viewer inside Pi.
+- `/muelsyse-changelog [version]` — scrollable changelog viewer inside Pi.
 - `CHANGELOG.md` shipped with the package.
 
 ### Developer
@@ -161,9 +161,9 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 ## [1.1.0] - 2026-07-26
 
 - Macaron truecolor footer: gradient separators, pulsed context gauge, sky context text and peach cost.
-- Thought trail: sakura chrome, tight vertical spacing.
+- Thought trail: muelsyse chrome, tight vertical spacing.
 - Tool cards: symmetric frame gradient, path/title color consistency.
-- Bundled sakura Claude shimmer (effort HUD and verb list).
+- Bundled muelsyse Claude shimmer (effort HUD and verb list).
 
 ## [1.0.0] - 2026-07-22
 

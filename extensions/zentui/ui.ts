@@ -8,7 +8,7 @@ import {
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 import type { PolishedTuiConfig } from "./config";
-import { renderSakuraGradient, SAKURA_MACARON_GRADIENT } from "./gradient";
+import { renderMuelsyseGradient, MUELSYSE_MACARON_GRADIENT } from "./gradient";
 import {
 	EDITOR_ACCENT_FALLBACK,
 	EDITOR_BORDER_FALLBACK,
@@ -97,13 +97,18 @@ type PolishedFrameOptions = {
 
 function clampRenderedLines(lines: string[], width: number): string[] {
 	const maxWidth = Math.max(0, width);
-	return lines.map((line) => truncateToWidth(line, maxWidth, ""));
+	// 渐变边框已按列宽生成，只有溢出的行才需要重新解析 ANSI 截断。
+	return lines.map((line) =>
+		visibleWidth(line) <= maxWidth ? line : truncateToWidth(line, maxWidth, ""),
+	);
 }
 
 function fillLine(content: string, width: number): string {
-	const truncated = truncateToWidth(content, Math.max(0, width), "");
-	const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
-	return `${truncated}${pad}`;
+	const maxWidth = Math.max(0, width);
+	const contentWidth = visibleWidth(content);
+	if (contentWidth <= maxWidth) return `${content}${" ".repeat(maxWidth - contentWidth)}`;
+	const truncated = truncateToWidth(content, maxWidth, "");
+	return `${truncated}${" ".repeat(Math.max(0, maxWidth - visibleWidth(truncated)))}`;
 }
 
 function renderEditorFrameBorder(
@@ -112,8 +117,8 @@ function renderEditorFrameBorder(
 	uiTheme: Theme,
 	colorSource: PolishedTuiConfig["colorSources"]["editor"],
 ): string {
-	if (config.colors.editorBorder === SAKURA_MACARON_GRADIENT) {
-		return renderSakuraGradient(text);
+	if (config.colors.editorBorder === MUELSYSE_MACARON_GRADIENT) {
+		return renderMuelsyseGradient(text);
 	}
 	return renderStyleForSourceOrFallback(
 		uiTheme,

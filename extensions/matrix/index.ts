@@ -1,6 +1,6 @@
 /**
- * Sakura Matrix: a short candy-colored rain widget shown above the editor while
- * the agent works. Opt-in (`/sakura-matrix on`), interactive TUI only, and a pure
+ * Muelsyse Matrix: a short candy-colored rain widget shown above the editor while
+ * the agent works. Opt-in (`/muelsyse-matrix on`), interactive TUI only, and a pure
  * widget: it never touches Pi's working message/indicator (the shimmer owns those).
  * One timer runs only while the rain is visible; idle CPU is zero.
  */
@@ -10,14 +10,14 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { fgAnsi, getColorMode, syncColorMode, type RGB } from "../shared/color";
 
-const WIDGET_KEY = "sakura-matrix-engine";
-export const CONFIG_PATH = join(getAgentDir(), "sakura-cyberdeck-matrix.json");
+const WIDGET_KEY = "muelsyse-matrix-engine";
+export const CONFIG_PATH = join(getAgentDir(), "muelsyse-cyberdeck-matrix.json");
 const PREVIEW_MS = 5_000;
 const GLYPHS = [..."0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾗﾘﾙﾚﾛﾜﾝ"];
 const BG: RGB = [20, 17, 26];
 const TEXT: RGB = [247, 238, 248];
 const CANDY: readonly RGB[] = [
-  [242, 167, 198], // sakura
+  [242, 167, 198], // muelsyse
   [246, 188, 154], // peach
   [239, 195, 230], // petal
   [199, 184, 245], // lavender
@@ -110,12 +110,12 @@ export type MatrixCommand =
   | { type: "invalid"; message: string };
 
 export const HELP_TEXT = [
-  "/sakura-matrix status        show current settings",
-  "/sakura-matrix on | off      enable or disable the rain while the agent works",
-  "/sakura-matrix preview       show the rain for 5 seconds",
-  `/sakura-matrix fps N         frame rate (${LIMITS.fps.min}-${LIMITS.fps.max})`,
-  `/sakura-matrix density N     column density (${LIMITS.density.min}-${LIMITS.density.max})`,
-  `/sakura-matrix height N      rows (${LIMITS.height.min}-${LIMITS.height.max})`,
+  "/muelsyse-matrix status        show current settings",
+  "/muelsyse-matrix on | off      enable or disable the rain while the agent works",
+  "/muelsyse-matrix preview       show the rain for 5 seconds",
+  `/muelsyse-matrix fps N         frame rate (${LIMITS.fps.min}-${LIMITS.fps.max})`,
+  `/muelsyse-matrix density N     column density (${LIMITS.density.min}-${LIMITS.density.max})`,
+  `/muelsyse-matrix height N      rows (${LIMITS.height.min}-${LIMITS.height.max})`,
 ].join("\n");
 
 export function parseMatrixCommand(args: string): MatrixCommand {
@@ -137,7 +137,7 @@ export function parseMatrixCommand(args: string): MatrixCommand {
       const { min, max } = LIMITS[command];
       const n = Number(value);
       if (value === undefined || !Number.isFinite(n) || n < min || n > max) {
-        return { type: "invalid", message: `Usage: /sakura-matrix ${command} <${min}-${max}>` };
+        return { type: "invalid", message: `Usage: /muelsyse-matrix ${command} <${min}-${max}>` };
       }
       const rounded = command === "density" ? Math.round(n * 100) / 100 : Math.round(n);
       return { type: "set", key: command, value: rounded };
@@ -148,7 +148,7 @@ export function parseMatrixCommand(args: string): MatrixCommand {
 }
 
 export function describeConfig(config: MatrixConfig): string {
-  return `Sakura Matrix: ${config.enabled ? "on" : "off"} · ${config.fps} FPS · ${config.height} lines · density ${config.density}`;
+  return `Muelsyse Matrix: ${config.enabled ? "on" : "off"} · ${config.fps} FPS · ${config.height} lines · density ${config.density}`;
 }
 
 function mulberry32(seed: number): () => number {
@@ -204,7 +204,7 @@ export function createDrops(width: number, density: number, height: number): Dro
   });
 }
 
-export function renderSakuraMatrix(
+export function renderMuelsyseMatrix(
   width: number,
   height: number,
   elapsedSeconds: number,
@@ -242,11 +242,11 @@ function isInteractiveTui(ctx: Pick<ExtensionContext, "mode" | "hasUI">): boolea
   return typeof ctx.mode === "string" ? ctx.mode === "tui" : ctx.hasUI === true;
 }
 
-export default function sakuraMatrixExtension(pi: ExtensionAPI): void {
+export default function muelsyseMatrixExtension(pi: ExtensionAPI): void {
   const loaded = loadConfig();
   const config = loaded.config;
   let configWarning = loaded.error
-    ? `Sakura Matrix: could not read ${CONFIG_PATH} (${loaded.error}); using defaults. Changing a setting will overwrite that file.`
+    ? `Muelsyse Matrix: could not read ${CONFIG_PATH} (${loaded.error}); using defaults. Changing a setting will overwrite that file.`
     : undefined;
 
   let activeContext: ExtensionContext | undefined;
@@ -281,7 +281,7 @@ export default function sakuraMatrixExtension(pi: ExtensionAPI): void {
         if (dropsByWidth.size >= 4) dropsByWidth.delete(dropsByWidth.keys().next().value ?? safeWidth);
         dropsByWidth.set(safeWidth, drops);
       }
-      cachedLines = renderSakuraMatrix(safeWidth, config.height, Math.max(0, performance.now() - startedAt) / 1000, phase, drops);
+      cachedLines = renderMuelsyseMatrix(safeWidth, config.height, Math.max(0, performance.now() - startedAt) / 1000, phase, drops);
       cachedKey = key;
       return cachedLines;
     },
@@ -412,8 +412,8 @@ export default function sakuraMatrixExtension(pi: ExtensionAPI): void {
   pi.on("tool_execution_update", () => noteHostUpdate());
   pi.on("tool_execution_end", () => setPhase("working"));
 
-  pi.registerCommand("sakura-matrix", {
-    description: "Sakura Matrix rain: status | on | off | preview | fps N | density N | height N | help",
+  pi.registerCommand("muelsyse-matrix", {
+    description: "Muelsyse Matrix rain: status | on | off | preview | fps N | density N | height N | help",
     handler: async (args, ctx) => {
       const command = parseMatrixCommand(args ?? "");
       switch (command.type) {
@@ -430,12 +430,12 @@ export default function sakuraMatrixExtension(pi: ExtensionAPI): void {
           config.enabled = true;
           // Takes effect from the next agent run (or immediately when one is running).
           if (!active && !ctx.isIdle()) start(ctx);
-          persist(ctx, "Sakura Matrix enabled");
+          persist(ctx, "Muelsyse Matrix enabled");
           return;
         case "off":
           config.enabled = false;
           stop();
-          persist(ctx, "Sakura Matrix disabled");
+          persist(ctx, "Muelsyse Matrix disabled");
           return;
         case "set":
           config[command.key] = command.value;
@@ -445,15 +445,15 @@ export default function sakuraMatrixExtension(pi: ExtensionAPI): void {
           return;
         case "preview": {
           if (!isInteractiveTui(ctx)) {
-            notify(ctx, "Sakura Matrix preview needs the interactive terminal UI", "warning");
+            notify(ctx, "Muelsyse Matrix preview needs the interactive terminal UI", "warning");
             return;
           }
           if (active && !previewing) {
-            notify(ctx, "Sakura Matrix is already running");
+            notify(ctx, "Muelsyse Matrix is already running");
             return;
           }
           if (!start(ctx, "thinking")) {
-            notify(ctx, "Sakura Matrix preview could not start", "warning");
+            notify(ctx, "Muelsyse Matrix preview could not start", "warning");
             return;
           }
           previewing = true;
@@ -462,7 +462,7 @@ export default function sakuraMatrixExtension(pi: ExtensionAPI): void {
             if (generation === token && previewing) stop();
           }, PREVIEW_MS);
           previewTimer.unref?.();
-          notify(ctx, "Sakura Matrix preview: 5 seconds");
+          notify(ctx, "Muelsyse Matrix preview: 5 seconds");
           return;
         }
       }

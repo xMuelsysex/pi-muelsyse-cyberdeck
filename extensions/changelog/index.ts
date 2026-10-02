@@ -1,7 +1,7 @@
-// What's-new notice for pi-sakura-cyberdeck.
+// What's-new notice for pi-muelsyse-cyberdeck.
 // After an install or `pi update`, the first interactive session shows the new
 // version's highlights above the editor (hidden again on the next message).
-// `/sakura-changelog` opens the full, scrollable changelog at any time.
+// `/muelsyse-changelog` opens the full, scrollable changelog at any time.
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -10,8 +10,8 @@ import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-c
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { type Component, matchesKey, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-const WIDGET_KEY = "sakura-cyberdeck-changelog";
-const STATE_FILE = "sakura-cyberdeck-state.json";
+const WIDGET_KEY = "muelsyse-cyberdeck-changelog";
+const STATE_FILE = "muelsyse-cyberdeck-state.json";
 const MAX_NOTICE_BULLETS = 10;
 
 export interface ChangelogSection {
@@ -147,8 +147,8 @@ export function renderNoticeLines(entries: ChangelogEntry[], width: number, them
 	const lines: string[] = [];
 	const title =
 		entries.length > 1
-			? `✿ pi-sakura-cyberdeck ${entries[entries.length - 1]!.version} → ${latest.version}`
-			: `✿ pi-sakura-cyberdeck ${latest.version}`;
+			? `✿ pi-muelsyse-cyberdeck ${entries[entries.length - 1]!.version} → ${latest.version}`
+			: `✿ pi-muelsyse-cyberdeck ${latest.version}`;
 	lines.push(theme.bold(theme.fg("accent", title)) + theme.fg("muted", " · what's new"));
 
 	const highlights = latest.sections.find((s) => /highlight/i.test(s.title));
@@ -163,7 +163,7 @@ export function renderNoticeLines(entries: ChangelogEntry[], width: number, them
 	lines.push(
 		theme.fg(
 			"muted",
-			`  ${total} changes in total · /sakura-changelog for the full list · hides after your next message`,
+			`  ${total} changes in total · /muelsyse-changelog for the full list · hides after your next message`,
 		),
 	);
 	return lines.map((line) => truncateToWidth(line, width, "…"));
@@ -279,7 +279,7 @@ function isTui(ctx: ExtensionContext): boolean {
 	return (ctx as { mode?: string }).mode ? (ctx as { mode?: string }).mode === "tui" : ctx.hasUI;
 }
 
-export default function sakuraChangelog(pi: ExtensionAPI) {
+export default function muelsyseChangelog(pi: ExtensionAPI) {
 	let noticeVisible = false;
 	let checkedThisProcess = false;
 
@@ -313,7 +313,7 @@ export default function sakuraChangelog(pi: ExtensionAPI) {
 			return;
 		}
 		if (!isTui(ctx)) {
-			ctx.ui.notify(`pi-sakura-cyberdeck updated to ${current}. Run /sakura-changelog to see what changed.`, "info");
+			ctx.ui.notify(`pi-muelsyse-cyberdeck updated to ${current}. Run /muelsyse-changelog to see what changed.`, "info");
 			writeLastSeenVersion(current);
 			return;
 		}
@@ -335,8 +335,8 @@ export default function sakuraChangelog(pi: ExtensionAPI) {
 	pi.on("agent_start", (_event, ctx) => hideNotice(ctx));
 	pi.on("session_shutdown", (_event, ctx) => hideNotice(ctx));
 
-	pi.registerCommand("sakura-changelog", {
-		description: "Show the pi-sakura-cyberdeck changelog (optionally for one version)",
+	pi.registerCommand("muelsyse-changelog", {
+		description: "Show the pi-muelsyse-cyberdeck changelog (optionally for one version)",
 		handler: async (args, ctx) => {
 			hideNotice(ctx);
 			const all = readChangelog();

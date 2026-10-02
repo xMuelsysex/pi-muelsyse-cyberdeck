@@ -33,13 +33,18 @@ import {
 	savePathDisplayPatch,
 	saveSeparatorPatch,
 	saveUiFeaturesPatch,
+	saveTelemetryPatch,
+	saveLanguagePatch,
+	type TelemetryConfig,
 	type UiFeaturesConfig,
 } from "./config";
 import { installFooter } from "./footer";
+import { setGradientTheme } from "./gradient";
 import { invalidateSessionCaches } from "./format";
 import { emptyGitStatus, readGitStatus } from "./git";
 import { LiveContextController } from "./live-context";
 import { readPackageVersionResult } from "./package-version";
+import { installOpenTuiGradient } from "./open-tui";
 import {
 	createProjectRefreshScheduler,
 	type ProjectProbePlan,
@@ -58,6 +63,7 @@ import { applyThinkingLabel } from "./thinking-message";
 import { installToolExecutionStyle } from "./tool-execution";
 import { PolishedEditor, WrappedPolishedEditor } from "./ui";
 import { installUserMessageStyle } from "./user-message";
+import { formatTurnTelemetry, TurnTelemetryTracker } from "./telemetry";
 
 const ZENTUI_EDITOR_FACTORY = Symbol.for("pi-zentui.editor-factory");
 const ZENTUI_EDITOR_BASE_FACTORY = Symbol.for("pi-zentui.editor-base-factory");
@@ -106,8 +112,16 @@ function isProjectTrusted(ctx: ExtensionContext): boolean {
 export default function (pi: ExtensionAPI) {
 	const state: FooterState = createInitialState(emptyGitStatus());
 	const sessionLifecycle = new SessionLifecycle();
+	let telemetryTracker = new TurnTelemetryTracker();
+	let cancelTelemetryNotice: (() => void) | undefined;
+	let completionNotice: string | undefined;
+	pi.events.on("muelsyse:completion-notice", (message) => {
+		if (typeof message === "string") completionNotice = message;
+	});
 
 	let currentConfig: PolishedTuiConfig = defaultConfig;
+	let openTuiLoaded = false;
+	let cleanupOpenTuiGradient: (() => void) | undefined;
 	/** Bumped on every config change; keys the probe plan below. */
 	let configVersion = 0;
 	let probePlan: { version: number; plan: ProjectProbePlan } | undefined;
@@ -401,7 +415,7 @@ export default function (pi: ExtensionAPI) {
 		if (currentConfig.features.messageStyle) installPrototypePatches(ctx);
 		else if (prototypePatchesInstalled) uninstallPrototypePatches(ctx);
 
-		if (currentConfig.features.editor) {
+		if (!openTuiLoaded && currentConfig.features.editor) {
 			const currentFactory = ctx.ui.getEditorComponent();
 			const editorMissingOrReplaced = !editorInstalled || !isZentuiEditorFactory(currentFactory);
 			if (editorMissingOrReplaced) result.editorBlocked = !installEditor(ctx);
@@ -409,7 +423,7 @@ export default function (pi: ExtensionAPI) {
 			result.editorBlocked = !uninstallEditor(ctx);
 		}
 
-		if (currentConfig.features.statusLine) {
+		if (!openTuiLoaded && currentConfig.features.statusLine) {
 			installStatusLine(ctx);
 		} else if (footerInstalled) {
 			uninstallStatusLine(ctx);
@@ -458,12 +472,20 @@ export default function (pi: ExtensionAPI) {
 		if (!isTuiContext(ctx)) return;
 		activeCtx = ctx;
 		activeTheme = ctx.ui.theme;
+		setGradientTheme(ctx.ui.theme);
 		syncColorMode(ctx.ui.theme);
 		uninstallPrototypePatches();
 		footerInstalled = false;
 		editorInstalled = false;
 		installedEditorFactory = undefined;
 		loadConfigForSession(ctx);
+		cleanupOpenTuiGradient?.();
+		openTuiLoaded = pi.getCommands().some((command) =>
+			command.source === "extension" && command.name === "open-tui",
+		);
+		cleanupOpenTuiGradient = openTuiLoaded
+			? installOpenTuiGradient(ctx, (render) => { requestFooterRender = render; })
+			: undefined;
 		syncState(state, ctx);
 		stopProjectRefresh();
 		applyConfiguredUi(ctx);
@@ -472,7 +494,7 @@ export default function (pi: ExtensionAPI) {
 
 	const scheduleEditorReconciliation = (ctx: ExtensionContext) => {
 		sessionLifecycle.defer(() => {
-			if (!isTuiContext(ctx) || !currentConfig.features.editor) return;
+			if (!isTuiContext(ctx) || openTuiLoaded || !currentConfig.features.editor) return;
 			const currentFactory = ctx.ui.getEditorComponent();
 			if (currentFactory && currentFactory !== installedEditorFactory) {
 				applyConfiguredUi(ctx);
@@ -489,12 +511,14 @@ export default function (pi: ExtensionAPI) {
 		try {
 			stopClockTimer();
 			stopProjectRefresh();
+			cleanupOpenTuiGradient?.();
+			cleanupOpenTuiGradient = undefined;
 			uninstallPrototypePatches(isTuiContext(ctx) ? ctx : undefined);
 			requestFooterRender = undefined;
 			syncFooterAnimation = undefined;
 			getActiveExtensionStatuses = () => new Map();
 			if (isTuiContext(ctx)) {
-				ctx.ui.setFooter(undefined);
+				if (!openTuiLoaded) ctx.ui.setFooter(undefined);
 				const currentFactory = ctx.ui.getEditorComponent();
 				if (!currentFactory || isZentuiEditorFactory(currentFactory)) {
 					ctx.ui.setEditorComponent(
@@ -512,6 +536,7 @@ export default function (pi: ExtensionAPI) {
 			footerInstalled = false;
 			editorInstalled = false;
 			activeTheme = undefined;
+			setGradientTheme(undefined);
 			activeCtx = undefined;
 			requestFooterRender = undefined;
 		}
@@ -521,6 +546,8 @@ export default function (pi: ExtensionAPI) {
 		sessionLifecycle.start();
 		liveContext.clear();
 		agentWorking = false;
+		telemetryTracker = new TurnTelemetryTracker();
+		completionNotice = undefined;
 		state.sessionStartEpoch = Date.now();
 		invalidateSessionCaches();
 		lastProjectCwd = undefined;
@@ -531,6 +558,9 @@ export default function (pi: ExtensionAPI) {
 	registerZentuiSettingsCommand(pi, {
 		sessionLifecycle,
 		getConfig: getCurrentConfig,
+		setLanguage(language) {
+			applyConfig(saveLanguagePatch(language));
+		},
 		setColorSources(patch: Partial<ColorSourcesConfig>) {
 			applyConfig(saveColorSourcesPatch(patch));
 		},
@@ -574,6 +604,9 @@ export default function (pi: ExtensionAPI) {
 		setExtensionStatusColorMode(key: string, colorMode: ExtensionStatusColorMode) {
 			applyConfig(saveExtensionStatusColorMode(key, colorMode));
 		},
+		setTelemetry(patch: Partial<TelemetryConfig>) {
+			applyConfig(saveTelemetryPatch(patch));
+		},
 		setAnimations(patch: Partial<AnimationsConfig>) {
 			applyConfig(saveAnimationsPatch(patch));
 		},
@@ -584,6 +617,7 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		liveContext.clear();
+		telemetryTracker = new TurnTelemetryTracker();
 		cleanupUi(ctx);
 	});
 
@@ -599,6 +633,10 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	pi.on("agent_start", (event, ctx) => {
+		cancelTelemetryNotice?.();
+		cancelTelemetryNotice = undefined;
+		completionNotice = undefined;
+		if (!openTuiLoaded) telemetryTracker.handle(event);
 		liveContext.clear();
 		agentWorking = true;
 		syncFooterAnimation?.();
@@ -615,10 +653,33 @@ export default function (pi: ExtensionAPI) {
 		syncInteractiveState(event, ctx);
 	});
 	pi.on("thinking_level_select", syncInteractiveState);
+	pi.on("turn_start", (event) => {
+		if (!openTuiLoaded) telemetryTracker.handle(event);
+	});
+	pi.on("message_start", (event) => {
+		if (!openTuiLoaded) telemetryTracker.handle(event);
+	});
+	pi.on("turn_end", (event) => {
+		if (!openTuiLoaded) telemetryTracker.handle(event);
+	});
+	pi.on("agent_settled", (event, ctx) => {
+		if (openTuiLoaded) return;
+		const telemetry = telemetryTracker.handle(event);
+		if (!telemetry || !currentConfig.telemetry.enabled || !isTuiContext(ctx)) return;
+		// Pi 会复用最后一条普通状态行；等本轮其他完成提示处理后再显示遥测。
+		cancelTelemetryNotice = sessionLifecycle.defer(() => {
+			cancelTelemetryNotice = undefined;
+			if (!currentConfig.telemetry.enabled) return;
+			const message = formatTurnTelemetry(telemetry, ctx.ui.theme, currentConfig.telemetry, currentConfig.icons.mode);
+			if (message) ctx.ui.notify(completionNotice ? `${completionNotice}\n\n${message}` : message, "info");
+		});
+	});
 	pi.on("message_update", (event) => {
+		if (!openTuiLoaded) telemetryTracker.handle(event);
 		liveContext.update(event.message);
 	});
 	pi.on("message_end", (event, ctx) => {
+		if (!openTuiLoaded) telemetryTracker.handle(event);
 		// Pi notifies extensions before persisting a successful message, so retain its live
 		// context until agent_end; failed messages clear immediately instead of showing stale usage.
 		if (

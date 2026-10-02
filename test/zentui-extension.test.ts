@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,14 +7,23 @@ import { test } from "node:test";
 
 const agentDir = mkdtempSync(join(tmpdir(), "zentui-agent-"));
 process.env.PI_CODING_AGENT_DIR = agentDir;
-const configFile = join(agentDir, "sakura-cyberdeck-zentui.json");
+const configFile = join(agentDir, "muelsyse-cyberdeck-zentui.json");
 
 type Handler = (event: unknown, ctx: unknown) => unknown;
 
 async function setup() {
 	const { default: zentui } = await import("../extensions/zentui/index");
 	const handlers = new Map<string, Handler[]>();
+	const events = new EventEmitter();
 	const pi = {
+		events: {
+			on(name: string, listener: (data: unknown) => void) {
+				events.on(name, listener);
+				return () => { events.off(name, listener); };
+			},
+			emit: (name: string, data: unknown) => { events.emit(name, data); },
+		},
+		getCommands: () => [],
 		on(event: string, handler: Handler) {
 			handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 		},

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { defaultConfig } from "../extensions/zentui/config";
+import { settingsText } from "../extensions/zentui/settings-language";
 import {
 	FIXED_EDITOR_REMOVED_MESSAGE,
 	parseDirectCommand,
@@ -81,6 +82,8 @@ test("/zentui fixed-editor disable notifies instead of disabling the editor", as
 		setExtensionStatusPlacement: unexpected("setExtensionStatusPlacement"),
 		setExtensionStatusColorMode: unexpected("setExtensionStatusColorMode"),
 		setAnimations: unexpected("setAnimations"),
+		setTelemetry: unexpected("setTelemetry"),
+		setLanguage: unexpected("setLanguage"),
 		requestRender: () => {},
 	});
 	const ctx = { hasUI: true, mode: "tui", ui: { notify: (message: string) => notices.push(message) } };
@@ -88,7 +91,7 @@ test("/zentui fixed-editor disable notifies instead of disabling the editor", as
 	await handler("fixed-editor disable", ctx);
 	await handler("editor please", ctx);
 	assert.deepEqual(calls, []);
-	assert.deepEqual(notices, [FIXED_EDITOR_REMOVED_MESSAGE, usageText()]);
+	assert.deepEqual(notices, [settingsText(FIXED_EDITOR_REMOVED_MESSAGE, defaultConfig.language), usageText()]);
 	await handler("editor off", ctx);
 	assert.deepEqual(calls, ["setUiFeatures"]);
 });
