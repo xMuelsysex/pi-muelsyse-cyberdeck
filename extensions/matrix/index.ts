@@ -16,7 +16,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { fgAnsi, getColorMode, syncColorMode, type RGB } from "../shared/color";
 
 const WIDGET_KEY = "muelsyse-matrix-engine";
-export const CONFIG_PATH = join(getAgentDir(), "muelsyse-cyberdeck-matrix.json");
+export const CONFIG_PATH = join(getAgentDir(), "muelsyse-macaron-matrix.json");
 const PREVIEW_MS = 5_000;
 const GLYPHS = [..."0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾗﾘﾙﾚﾛﾜﾝ"];
 const BG: RGB = [20, 17, 26];

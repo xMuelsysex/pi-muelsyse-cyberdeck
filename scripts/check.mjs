@@ -10,7 +10,7 @@ const read = (path) => readFile(resolve(root, path), "utf8");
 const exists = (path) => access(resolve(root, path)).then(() => true, () => false);
 const manifest = JSON.parse(await read("package.json"));
 
-assert.equal(manifest.name, "pi-muelsyse-cyberdeck");
+assert.equal(manifest.name, "pi-muelsyse-macaron");
 assert.ok(manifest.keywords.includes("pi-package"));
 assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
 
@@ -89,4 +89,4 @@ const readme = await read("README.md");
 assert.ok(readme.includes(`**v${manifest.version}**`), "README headline must mention the version");
 assert.ok(readme.includes(`### ${manifest.version}`), "README changelog must list the version");
 
-console.log(`pi-muelsyse-cyberdeck ${manifest.version} package check passed`);
+console.log(`pi-muelsyse-macaron ${manifest.version} package check passed`);

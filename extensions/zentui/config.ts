@@ -206,7 +206,7 @@ export const FOOTER_FORMAT_ALIASES: Record<string, string> = {
 	separator: "sep",
 };
 
-const configPath = join(getAgentDir(), "muelsyse-cyberdeck-zentui.json");
+const configPath = join(getAgentDir(), "muelsyse-macaron-zentui.json");
 
 // ---------------------------------------------------------------------------
 // Defaults — the single source of truth. `defaultConfig` below is literally

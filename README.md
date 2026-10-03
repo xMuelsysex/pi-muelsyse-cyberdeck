@@ -1,4 +1,4 @@
-# pi-muelsyse-cyberdeck
+# pi-muelsyse-macaron
 
 为 [Pi](https://pi.dev) 提供轻量的缪尔赛思马卡龙视觉主题与终端界面。
 
@@ -72,13 +72,13 @@
 ## 安装
 
 ```bash
-pi install git:github.com/xMuelsysex/pi-muelsyse-cyberdeck
+pi install git:github.com/xMuelsysex/pi-muelsyse-macaron
 ```
 
 本地安装：
 
 ```bash
-pi install /path/to/pi-muelsyse-cyberdeck
+pi install /path/to/pi-muelsyse-macaron
 ```
 
 随后运行 `/settings`，将主题设为 **muelsyse-macaron**，再重启一次 Pi。Pi 0.99 默认使用 `system` 主题。
@@ -90,7 +90,7 @@ pi install /path/to/pi-muelsyse-cyberdeck
 未固定版本的 Git 安装可以执行：
 
 ```bash
-pi update git:github.com/xMuelsysex/pi-muelsyse-cyberdeck
+pi update git:github.com/xMuelsysex/pi-muelsyse-macaron
 ```
 
 更新后重启 Pi。首个会话在编辑器上方显示更新内容，发送下一条消息后消失。随时可用 `/muelsyse-changelog` 在 Pi 中阅读完整日志，也可查看 [CHANGELOG.md](CHANGELOG.md)。
@@ -98,7 +98,7 @@ pi update git:github.com/xMuelsysex/pi-muelsyse-cyberdeck
 Pi 不会自动推送包更新。固定了标签或提交的用户需要明确选择新版本：
 
 ```bash
-pi install git:github.com/xMuelsysex/pi-muelsyse-cyberdeck@v1.2.0
+pi install git:github.com/xMuelsysex/pi-muelsyse-macaron@v1.2.0
 ```
 
 1.2.0 更新注意事项：
@@ -124,12 +124,12 @@ pi install git:github.com/xMuelsysex/pi-muelsyse-cyberdeck@v1.2.0
 
 ## 配置
 
-Zentui 配置位于 `~/.pi/agent/muelsyse-cyberdeck-zentui.json`，可用 `/zentui` 修改。JSON 无效时会在启动时提示，原文件保持不变。
+Zentui 配置位于 `~/.pi/agent/muelsyse-macaron-zentui.json`，可用 `/zentui` 修改。JSON 无效时会在启动时提示，原文件保持不变。
 
 设置默认使用简体中文。运行 **`/zentui` →“功能”→“语言 / Language”**，可在 **简体中文** 与 **English** 之间切换；立即生效并保存，重启后保留。此选项控制 Zentui 设置文案，不修改 Pi 或 Open TUI 自身的语言。
 
 ```jsonc
-// ~/.pi/agent/muelsyse-cyberdeck-zentui.json（节选）
+// ~/.pi/agent/muelsyse-macaron-zentui.json（节选）
 {
   "language": "zh-CN",         // zh-CN：简体中文；en：英文
   "colors": {
@@ -146,7 +146,7 @@ Zentui 配置位于 `~/.pi/agent/muelsyse-cyberdeck-zentui.json`，可用 `/zent
 }
 ```
 
-字符雨配置位于 `~/.pi/agent/muelsyse-cyberdeck-matrix.json`，通过 `/muelsyse-matrix` 修改。`on` 开启的是“工作时自动播放”，空闲时不常驻；`preview` 可立即预览 5 秒。
+字符雨配置位于 `~/.pi/agent/muelsyse-macaron-matrix.json`，通过 `/muelsyse-matrix` 修改。`on` 开启的是“工作时自动播放”，空闲时不常驻；`preview` 可立即预览 5 秒。
 
 ## 命令
 

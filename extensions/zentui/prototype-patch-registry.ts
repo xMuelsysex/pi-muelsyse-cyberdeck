@@ -1,7 +1,7 @@
 // Pack-unique key: upstream pi-zentui uses "pi-zentui.prototype-patch-registry"; sharing it
 // would let the two packages clobber each other's records when both are installed.
 export const ZENTUI_PROTOTYPE_PATCH_REGISTRY = Symbol.for(
-	"pi-muelsyse-cyberdeck.zentui.prototype-patch-registry",
+	"pi-muelsyse-macaron.zentui.prototype-patch-registry",
 );
 
 export type PrototypePatchAdapter =

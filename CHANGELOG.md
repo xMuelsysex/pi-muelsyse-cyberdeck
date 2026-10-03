@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to pi-muelsyse-cyberdeck. After updating, Pi shows the newest
+All notable changes to pi-muelsyse-macaron. After updating, Pi shows the newest
 entry once above the editor; run `/muelsyse-changelog` to read this file inside Pi.
 
 ## [1.2.0] - 2026-09-30
@@ -30,7 +30,7 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 - An extension status with a key such as `constructor` or `__proto__` crashed every footer render.
 - Settings changes (enabling git commit/metrics, package version, footer format, icon mode) did not apply until the next refresh or restart; they now apply immediately.
 - Built-in defaults disagreed with what users actually got (refresh interval, footer format, icons). Defaults now come from one place.
-- A corrupt `muelsyse-cyberdeck-zentui.json` silently reset every setting to defaults. You now get a warning naming the file and the JSON error, and the file is never overwritten until fixed.
+- A corrupt `muelsyse-macaron-zentui.json` silently reset every setting to defaults. You now get a warning naming the file and the JSON error, and the file is never overwritten until fixed.
 - `$sep` in a custom `footerFormat` always rendered ` | ` regardless of the separator setting.
 - Numbers from 999,500 to 999,999 were shown as `1000k` (now `1.0M`).
 - A `"bold accent"` style spec dropped the theme color.

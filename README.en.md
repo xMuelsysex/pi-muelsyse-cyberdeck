@@ -1,4 +1,4 @@
-# pi-muelsyse-cyberdeck
+# pi-muelsyse-macaron
 
 Lightweight Muelsyse Macaron visual pack for [Pi](https://pi.dev).
 
@@ -72,13 +72,13 @@ No runtime dependencies; everything uses Pi’s public extension API except thre
 ## Install
 
 ```bash
-pi install git:github.com/xMuelsysex/pi-muelsyse-cyberdeck
+pi install git:github.com/xMuelsysex/pi-muelsyse-macaron
 ```
 
 Local:
 
 ```bash
-pi install /path/to/pi-muelsyse-cyberdeck
+pi install /path/to/pi-muelsyse-macaron
 ```
 
 Then `/settings` → theme **muelsyse-macaron** (Pi 0.99 defaults to its `system` theme). Restart Pi once.
@@ -90,7 +90,7 @@ Then `/settings` → theme **muelsyse-macaron** (Pi 0.99 defaults to its `system
 For an unpinned Git installation:
 
 ```bash
-pi update git:github.com/xMuelsysex/pi-muelsyse-cyberdeck
+pi update git:github.com/xMuelsysex/pi-muelsyse-macaron
 ```
 
 Restart Pi after updating. The first session after an update shows **what’s new** above the editor (it disappears after your next message); run `/muelsyse-changelog` any time to read the full changelog inside Pi, or see [CHANGELOG.md](CHANGELOG.md).
@@ -98,7 +98,7 @@ Restart Pi after updating. The first session after an update shows **what’s ne
 Pi does not push package updates automatically. Users who pinned a tag or commit must explicitly select the new version:
 
 ```bash
-pi install git:github.com/xMuelsysex/pi-muelsyse-cyberdeck@v1.2.0
+pi install git:github.com/xMuelsysex/pi-muelsyse-macaron@v1.2.0
 ```
 
 Notes for 1.2.0:
@@ -124,12 +124,12 @@ Or start with `pi --tui-mode fullscreen`. Pack styling (editor chrome, footer, s
 
 ## Configuration
 
-Zentui config file: `~/.pi/agent/muelsyse-cyberdeck-zentui.json` (edit with `/zentui`). If the file contains invalid JSON, the pack warns you at startup and does not overwrite it.
+Zentui config file: `~/.pi/agent/muelsyse-macaron-zentui.json` (edit with `/zentui`). If the file contains invalid JSON, the pack warns you at startup and does not overwrite it.
 
 Settings default to Simplified Chinese. Use **`/zentui` → Features → “Language / 语言”** to switch between **简体中文** and **English**; the change applies immediately, is saved, and survives a restart. It controls the Zentui settings text only, not Pi's or Open TUI's own language.
 
 ```jsonc
-// ~/.pi/agent/muelsyse-cyberdeck-zentui.json (excerpt)
+// ~/.pi/agent/muelsyse-macaron-zentui.json (excerpt)
 {
   "language": "zh-CN",         // zh-CN (Simplified Chinese) or en
   "colors": {
@@ -146,7 +146,7 @@ Settings default to Simplified Chinese. Use **`/zentui` → Features → “Lang
 }
 ```
 
-Matrix settings live in `~/.pi/agent/muelsyse-cyberdeck-matrix.json` (edit with `/muelsyse-matrix`).
+Matrix settings live in `~/.pi/agent/muelsyse-macaron-matrix.json` (edit with `/muelsyse-matrix`).
 
 ## Commands
 
@@ -216,7 +216,7 @@ Supported Pi versions: 0.87.1 and newer (tested on 0.87.1 and 0.99.1).
 - An extension status with a key such as `constructor` or `__proto__` crashed every footer render.
 - Settings changes (enabling git commit/metrics, package version, footer format, icon mode) did not apply until the next refresh or restart; they now apply immediately.
 - Built-in defaults disagreed with what users actually got (refresh interval, footer format, icons). Defaults now come from one place.
-- A corrupt `muelsyse-cyberdeck-zentui.json` silently reset every setting to defaults. You now get a warning naming the file and the JSON error, and the file is never overwritten until fixed.
+- A corrupt `muelsyse-macaron-zentui.json` silently reset every setting to defaults. You now get a warning naming the file and the JSON error, and the file is never overwritten until fixed.
 - `$sep` in a custom `footerFormat` always rendered ` | ` regardless of the separator setting.
 - Numbers from 999,500 to 999,999 were shown as `1000k` (now `1.0M`).
 - A `"bold accent"` style spec dropped the theme color.

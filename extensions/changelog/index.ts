@@ -1,4 +1,4 @@
-// What's-new notice for pi-muelsyse-cyberdeck.
+// What's-new notice for pi-muelsyse-macaron.
 // After an install or `pi update`, the first interactive session shows the new
 // version's highlights above the editor (hidden again on the next message).
 // `/muelsyse-changelog` opens the full, scrollable changelog at any time.
@@ -10,8 +10,8 @@ import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-c
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { type Component, matchesKey, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-const WIDGET_KEY = "muelsyse-cyberdeck-changelog";
-const STATE_FILE = "muelsyse-cyberdeck-state.json";
+const WIDGET_KEY = "muelsyse-macaron-changelog";
+const STATE_FILE = "muelsyse-macaron-state.json";
 const MAX_NOTICE_BULLETS = 10;
 
 export interface ChangelogSection {
@@ -147,8 +147,8 @@ export function renderNoticeLines(entries: ChangelogEntry[], width: number, them
 	const lines: string[] = [];
 	const title =
 		entries.length > 1
-			? `✿ pi-muelsyse-cyberdeck ${entries[entries.length - 1]!.version} → ${latest.version}`
-			: `✿ pi-muelsyse-cyberdeck ${latest.version}`;
+			? `✿ pi-muelsyse-macaron ${entries[entries.length - 1]!.version} → ${latest.version}`
+			: `✿ pi-muelsyse-macaron ${latest.version}`;
 	lines.push(theme.bold(theme.fg("accent", title)) + theme.fg("muted", " · what's new"));
 
 	const highlights = latest.sections.find((s) => /highlight/i.test(s.title));
@@ -313,7 +313,7 @@ export default function muelsyseChangelog(pi: ExtensionAPI) {
 			return;
 		}
 		if (!isTui(ctx)) {
-			ctx.ui.notify(`pi-muelsyse-cyberdeck updated to ${current}. Run /muelsyse-changelog to see what changed.`, "info");
+			ctx.ui.notify(`pi-muelsyse-macaron updated to ${current}. Run /muelsyse-changelog to see what changed.`, "info");
 			writeLastSeenVersion(current);
 			return;
 		}
@@ -336,7 +336,7 @@ export default function muelsyseChangelog(pi: ExtensionAPI) {
 	pi.on("session_shutdown", (_event, ctx) => hideNotice(ctx));
 
 	pi.registerCommand("muelsyse-changelog", {
-		description: "Show the pi-muelsyse-cyberdeck changelog (optionally for one version)",
+		description: "Show the pi-muelsyse-macaron changelog (optionally for one version)",
 		handler: async (args, ctx) => {
 			hideNotice(ctx);
 			const all = readChangelog();

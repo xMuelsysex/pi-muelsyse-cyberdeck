@@ -7,7 +7,7 @@ import { test } from "node:test";
 
 const agentDir = mkdtempSync(join(tmpdir(), "zentui-agent-"));
 process.env.PI_CODING_AGENT_DIR = agentDir;
-const configFile = join(agentDir, "muelsyse-cyberdeck-zentui.json");
+const configFile = join(agentDir, "muelsyse-macaron-zentui.json");
 
 type Handler = (event: unknown, ctx: unknown) => unknown;
 
