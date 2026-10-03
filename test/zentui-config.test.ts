@@ -14,6 +14,7 @@ import {
 	saveExtensionStatusPlacement,
 	saveUiFeaturesPatch,
 } from "../extensions/zentui/config";
+import { collectExtensionStatusSegments } from "../extensions/zentui/extension-status";
 
 function tempConfig(content?: string): string {
 	const path = join(mkdtempSync(join(tmpdir(), "zentui-config-")), "zentui.json");
@@ -73,6 +74,34 @@ test("missing config loads defaults without a problem; saves are atomic JSON", (
 	const saved = saveAnimationsPatch({ footerPulse: true }, path);
 	assert.equal(saved.animations.footerPulse, true);
 	assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), { animations: { footerPulse: true } });
+});
+
+test("maestro's informational statuses default to off", () => {
+	for (const key of ["approval-mode", "maestro-auto-compact-mode", "maestro-effort", "mode", "self-evolve"]) {
+		assert.equal(getExtensionStatusPlacement(defaultConfig, key), "off", key);
+	}
+	// An explicit placement in the config still wins.
+	const config = mergeConfig({ extensionStatuses: { placements: { mode: "right" } } });
+	assert.equal(getExtensionStatusPlacement(config, "mode"), "right");
+});
+
+test("the footer only collects statuses that are not turned off", () => {
+	const statuses = new Map([
+		["approval-mode", "YOLO"],
+		["maestro-auto-compact-mode", "AUTO ON"],
+		["maestro-effort", "max · model=global"],
+		["mode", "ACT"],
+		["self-evolve", "EVOL off"],
+		["codex-goal", "GOAL 2/5"],
+	]);
+	const segments = collectExtensionStatusSegments(statuses, defaultConfig);
+	assert.deepEqual(
+		segments.right.map((segment) => segment.key),
+		[],
+		"no hidden status leaks into the right side",
+	);
+	assert.deepEqual(segments.left, []);
+	assert.deepEqual(segments.middle.map((segment) => segment.text), ["GOAL 2/5"], "other statuses keep their placement");
 });
 
 test("extension status placements are own-property lookups (no prototype keys)", () => {

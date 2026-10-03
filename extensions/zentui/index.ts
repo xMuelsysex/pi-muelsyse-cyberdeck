@@ -45,6 +45,7 @@ import { emptyGitStatus, readGitStatus } from "./git";
 import { LiveContextController } from "./live-context";
 import { readPackageVersionResult } from "./package-version";
 import { installOpenTuiGradient } from "./open-tui";
+import { installCockpitBarGradient } from "./cockpit-bar";
 import {
 	createProjectRefreshScheduler,
 	type ProjectProbePlan,
@@ -121,6 +122,9 @@ export default function (pi: ExtensionAPI) {
 
 	let currentConfig: PolishedTuiConfig = defaultConfig;
 	let openTuiLoaded = false;
+	let cockpitLoaded = false;
+	let cockpitOwnershipDisposer: (() => void) | undefined;
+	let cleanupCockpitBarGradient: (() => void) | undefined;
 	let cleanupOpenTuiGradient: (() => void) | undefined;
 	/** Bumped on every config change; keys the probe plan below. */
 	let configVersion = 0;
@@ -407,6 +411,23 @@ export default function (pi: ExtensionAPI) {
 		getActiveExtensionStatuses = () => new Map();
 	};
 
+	/**
+	 * Cockpit 通过 pi.events 宣告 UI 归属，并在同一轮同步换上自己的页脚。
+	 * 检测到它且没有 Open TUI 时，本包等它挂载完再把页脚换回本项目样式。
+	 */
+	const followCockpitFooter = (ctx: ExtensionContext) => {
+		cockpitOwnershipDisposer?.();
+		cockpitOwnershipDisposer = undefined;
+		if (!cockpitLoaded || openTuiLoaded) return;
+		cockpitOwnershipDisposer = pi.events.on("cockpit:ui-ownership", () => {
+			queueMicrotask(() => {
+				if (!isTuiContext(ctx) || openTuiLoaded || !currentConfig.features.statusLine) return;
+				if (footerInstalled) uninstallStatusLine(ctx);
+				installStatusLine(ctx);
+			});
+		});
+	};
+
 	const applyConfiguredUi = (ctx: ExtensionContext): ApplyUiResult => {
 		const result: ApplyUiResult = { editorBlocked: false };
 		if (!isTuiContext(ctx)) return result;
@@ -483,12 +504,18 @@ export default function (pi: ExtensionAPI) {
 		openTuiLoaded = pi.getCommands().some((command) =>
 			command.source === "extension" && command.name === "open-tui",
 		);
+		cockpitLoaded = pi.getCommands().some((command) =>
+			command.source === "extension" && command.name === "cockpit",
+		);
 		cleanupOpenTuiGradient = openTuiLoaded
 			? installOpenTuiGradient(ctx, (render) => { requestFooterRender = render; })
 			: undefined;
+		cleanupCockpitBarGradient?.();
+		cleanupCockpitBarGradient = cockpitLoaded ? installCockpitBarGradient(ctx) : undefined;
 		syncState(state, ctx);
 		stopProjectRefresh();
 		applyConfiguredUi(ctx);
+		followCockpitFooter(ctx);
 		refresh();
 	};
 
@@ -513,7 +540,11 @@ export default function (pi: ExtensionAPI) {
 			stopProjectRefresh();
 			cleanupOpenTuiGradient?.();
 			cleanupOpenTuiGradient = undefined;
+			cleanupCockpitBarGradient?.();
+			cleanupCockpitBarGradient = undefined;
 			uninstallPrototypePatches(isTuiContext(ctx) ? ctx : undefined);
+			cockpitOwnershipDisposer?.();
+			cockpitOwnershipDisposer = undefined;
 			requestFooterRender = undefined;
 			syncFooterAnimation = undefined;
 			getActiveExtensionStatuses = () => new Map();

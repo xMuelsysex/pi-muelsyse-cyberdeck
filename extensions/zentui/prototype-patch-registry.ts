@@ -9,7 +9,8 @@ export type PrototypePatchAdapter =
 	| "user-message-render"
 	| "selector-border-render"
 	| "tool-execution-render"
-	| "tool-execution-mouse";
+	| "tool-execution-mouse"
+	| "cockpit-bar-render";
 
 export type PrototypeMethodName = "render" | "handleMouse";
 type PrototypeMethod = (this: unknown, ...args: unknown[]) => unknown;

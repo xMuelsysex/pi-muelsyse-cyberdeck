@@ -56,6 +56,8 @@ const chinese: Record<string, string> = {
 	"No active statuses": "暂无活动状态",
 	"This tab only lists statuses currently published through ctx.ui.setStatus().": "此页只列出当前通过 ctx.ui.setStatus() 发布的状态。",
 	"Current status": "当前状态", "placement": "位置", "color": "配色",
+	"Not publishing a status right now": "当前未发布状态",
+	"Live statuses are read through this pack's footer, and /open-tui currently owns the footer, so none can be listed.": "实时状态通过本包页脚读取；当前页脚由 /open-tui 接管，因此无法列出。",
 	"theme": "Pi 主题", "terminal": "终端调色板", "mixed": "混合", "enabled": "开启", "disabled": "关闭",
 	"off": "隐藏", "left": "左侧", "middle": "中间", "right": "右侧", "zentui": "Zentui 配色", "original": "原始配色",
 	"text": "文字", "gauge": "进度条", "text+gauge": "文字与进度条", "pipe": "竖线", "dot": "圆点", "chevron": "箭头", "none": "无",

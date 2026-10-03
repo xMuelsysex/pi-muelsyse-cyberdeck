@@ -324,14 +324,16 @@ npm run dev:setup     # installs Pi + TypeScript into .dev/ (not shipped, no pac
 npm run verify        # package check + strict typecheck + unit tests
 PI_HOST_ROOT=/path/to/node_modules/@earendil-works/pi-coding-agent npm test   # test against another Pi
 
-npm run preview           # this pack's UI only, without other extensions or skills
-npm run preview:open-tui  # this pack's UI plus the npm-installed Open TUI
+npm run preview           # this pack's UI plus pi-maestro-flow and its bundled plugins
+npm run preview:open-tui  # the above plus the npm-installed Open TUI
 ```
 
-Both previews reuse the local Pi agent directory and defaults, enabling the built-in
-`read`, `bash`, `edit` and `write` tools; settings and sessions from a preview are written
-to the same directory. The Open TUI entry point comes from `preview.extensions` in
-`package.json`, and every other extension and skill stays unloaded.
+Both previews reuse the local Pi agent directory and defaults, enabling every built-in
+tool plus the tools of the loaded extensions (pi-maestro-flow's and pi-maestro-teammate's
+Maestro tools among them); settings and sessions from a preview are written to the same
+directory. The extra extension list lives in `preview.extensions` in `package.json`, Open
+TUI alone in `preview.openTuiExtensions`, Maestro's skills in `preview.skills`, and every
+other extension and skill stays unloaded.
 
 ## Credits
 

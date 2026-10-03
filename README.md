@@ -321,15 +321,15 @@ npm run dev:setup     # 将 Pi 和 TypeScript 安装到 .dev/，不包含在发�
 npm run verify        # 包检查、严格类型检查和单元测试
 PI_HOST_ROOT=/path/to/node_modules/@earendil-works/pi-coding-agent npm test   # 针对其他 Pi 版本测试
 
-npm run preview           # 本项目 UI，不加载其他插件和 Skill
-npm run preview:open-tui  # 本项目 UI，加上 npm 安装的 Open TUI
+npm run preview           # 本项目 UI + pi-maestro-flow 及其捆绑插件
+npm run preview:open-tui  # 以上这些再加上 npm 安装的 Open TUI
 ```
 
-两种预览共用本机 Pi 的认证和配置目录，启用基本工具 `read`、`bash`、`edit`、`write`。预览中的设置和会话也会写入本机目录。Open TUI 的入口由根目录 `package.json` 的 `preview.extensions` 配置；其余插件和 Skill 暂停加载。
+两种预览共用本机 Pi 的认证和配置目录，启用 Pi 自带的全部工具，以及已加载扩展提供的工具（pi-maestro-flow 与 pi-maestro-teammate 的 Maestro 工具集在内）。预览中的设置和会话也会写入本机目录。额外扩展的清单由根目录 `package.json` 的 `preview.extensions` 配置，Open TUI 单列在 `preview.openTuiExtensions`，Maestro 的 Skill 列在 `preview.skills`；其余插件和 Skill 暂停加载。
 
 ## 致谢
 
-- [LinuxDo](https://linux.do/)：社区支持与反馈来源，本包的配色偏好不少来自这里。
+- [LinuxDo](https://linux.do/)：社区支持与反馈来源。
 - [pi-open-tui](https://github.com/OldSuns/pi-open-tui)：遥测统计与 Open TUI 接管、渐变适配的实现参考（MIT）。
 - [pi-sakura-cyberdeck](https://github.com/beautifulrem/pi-sakura-cyberdeck)：本包的上游项目，Zentui、shimmer、主题与页眉的起点。
 

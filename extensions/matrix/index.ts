@@ -3,6 +3,11 @@
  * the agent works. Opt-in (`/muelsyse-matrix on`), interactive TUI only, and a pure
  * widget: it never touches Pi's working message/indicator (the shimmer owns those).
  * One timer runs only while the rain is visible; idle CPU is zero.
+ *
+ * The widget slot is reserved once at `session_start` and kept for the whole session
+ * (idle ⇒ zero rendered lines), because Pi renders widgets in registration order:
+ * a slot re-registered later would land below every widget mounted meanwhile — the
+ * Cockpit agent bar among them — and the rain has to stay above that bar.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -242,6 +247,9 @@ function isInteractiveTui(ctx: Pick<ExtensionContext, "mode" | "hasUI">): boolea
   return typeof ctx.mode === "string" ? ctx.mode === "tui" : ctx.hasUI === true;
 }
 
+/** Idle renders nothing: the reserved slot must not occupy any row. */
+const NO_LINES: readonly string[] = [];
+
 export default function muelsyseMatrixExtension(pi: ExtensionAPI): void {
   const loaded = loadConfig();
   const config = loaded.config;
@@ -249,7 +257,6 @@ export default function muelsyseMatrixExtension(pi: ExtensionAPI): void {
     ? `Muelsyse Matrix: could not read ${CONFIG_PATH} (${loaded.error}); using defaults. Changing a setting will overwrite that file.`
     : undefined;
 
-  let activeContext: ExtensionContext | undefined;
   let phase: Phase = "working";
   let active = false;
   let previewing = false;
@@ -272,6 +279,7 @@ export default function muelsyseMatrixExtension(pi: ExtensionAPI): void {
 
   const component = {
     render(width: number): string[] {
+      if (!active) return NO_LINES as string[];
       const safeWidth = Math.max(1, width);
       const key = `${safeWidth}:${config.height}:${frame}:${phase}`;
       if (key === cachedKey) return cachedLines;
@@ -320,16 +328,25 @@ export default function muelsyseMatrixExtension(pi: ExtensionAPI): void {
     active = false;
     previewing = false;
     clearTimers();
-    const ctx = activeContext;
-    activeContext = undefined;
-    requestRender = undefined;
     lastHostUpdateAt = 0;
     invalidate();
-    if (!ctx) return;
+    // The slot stays registered; repaint so the rain's rows disappear.
+    requestRender?.();
+  };
+
+  /** Reserves the widget slot for this session — once, before other extensions mount theirs. */
+  const mountSlot = (ctx: ExtensionContext): boolean => {
+    if (!isInteractiveTui(ctx)) return false;
+    syncColorMode(ctx.ui.theme);
     try {
-      ctx.ui.setWidget(WIDGET_KEY, undefined);
+      ctx.ui.setWidget(WIDGET_KEY, (tui) => {
+        requestRender = () => tui.requestRender();
+        return component;
+      });
+      return true;
     } catch {
-      // UI may already be disposed during shutdown; cleanup stays idempotent.
+      // UI disposed mid-session-start: the rain simply has no slot this session.
+      return false;
     }
   };
 
@@ -337,8 +354,6 @@ export default function muelsyseMatrixExtension(pi: ExtensionAPI): void {
   const start = (ctx: ExtensionContext, initialPhase: Phase = "working"): boolean => {
     stop();
     if (!isInteractiveTui(ctx)) return false;
-    syncColorMode(ctx.ui.theme);
-    activeContext = ctx;
     active = true;
     phase = initialPhase;
     frame = 0;
@@ -346,15 +361,6 @@ export default function muelsyseMatrixExtension(pi: ExtensionAPI): void {
     nextDeadline = startedAt;
     dropsByWidth.clear();
     const token = generation;
-    try {
-      ctx.ui.setWidget(WIDGET_KEY, (tui) => {
-        requestRender = () => tui.requestRender();
-        return component;
-      });
-    } catch {
-      stop();
-      return false;
-    }
     schedule(token);
     return true;
   };
@@ -387,6 +393,7 @@ export default function muelsyseMatrixExtension(pi: ExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => {
     if (!isInteractiveTui(ctx)) return;
     syncColorMode(ctx.ui.theme);
+    mountSlot(ctx);
     if (configWarning) {
       notify(ctx, configWarning, "warning");
       configWarning = undefined;

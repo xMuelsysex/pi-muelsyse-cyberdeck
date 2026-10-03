@@ -141,12 +141,17 @@ export function gradientCacheSize(): number {
 	return gradientCache.size;
 }
 
-function paintPositions(text: string, colorAt: (position: number) => RGB): string {
+function paintPositions(text: string, colorAt: (position: number) => RGB, contentOnly = false): string {
 	if (getColorMode() === "none") return text;
 	// 保留 bold、背景、光标标记及链接，ANSI 控制序列不占渐变位置。
 	const parts = text.split(/(\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][\s\S]*?(?:\x07|\x1b\\))/g);
+	// contentOnly：空白不消耗渐变跨度，可见内容跨越完整渐变色。
+	const counted = (part: string) => {
+		const chars = splitGraphemes(part);
+		return contentOnly ? chars.filter((char) => char !== " ").length : chars.length;
+	};
 	const count = parts.reduce((total, part, index) =>
-		total + (index % 2 === 0 ? splitGraphemes(part).length : 0), 0);
+		total + (index % 2 === 0 ? counted(part) : 0), 0);
 	if (count === 0) return text;
 	const span = Math.max(1, count - 1);
 	let rendered = "";
@@ -158,7 +163,12 @@ function paintPositions(text: string, colorAt: (position: number) => RGB): strin
 			continue;
 		}
 		for (const char of splitGraphemes(part)) {
-			rendered += char === " " ? char : `${fgAnsi(colorAt(position / span))}${char}`;
+			if (char === " ") {
+				rendered += char;
+				if (!contentOnly) position += 1;
+				continue;
+			}
+			rendered += `${fgAnsi(colorAt(position / span))}${char}`;
 			position += 1;
 		}
 	}
@@ -166,17 +176,44 @@ function paintPositions(text: string, colorAt: (position: number) => RGB): strin
 }
 
 /** Render the active Pi theme gradient. Optional phase shifts the stops for shimmer. */
-export function renderMuelsyseGradient(text: string, phase = 0): string {
+export function renderMuelsyseGradient(
+	text: string,
+	phase = 0,
+	options: { contentOnly?: boolean } = {},
+): string {
 	if (!text) return text;
 	const palette = currentThemePalette();
 	const stops = palette?.stops ?? MUELSYSE_MACARON_STOPS;
+	const contentOnly = options.contentOnly === true;
 	if (phase !== 0) {
-		return paintPositions(text, (pos) => sampleMuelsyseGradient(stops, pos, phase));
+		return paintPositions(text, (pos) => sampleMuelsyseGradient(stops, pos, phase), contentOnly);
 	}
-	const cacheKey = gradientCacheKey(text, palette?.cacheKey ?? MUELSYSE_MACARON_CACHE_KEY);
+	const cacheKey = `${contentOnly ? "\0content" : ""}${gradientCacheKey(text, palette?.cacheKey ?? MUELSYSE_MACARON_CACHE_KEY)}`;
 	const cached = cacheGet(cacheKey);
 	if (cached !== undefined) return cached;
-	const rendered = paintPositions(text, (pos) => sampleMuelsyseGradient(stops, pos));
+	const rendered = paintPositions(text, (pos) => sampleMuelsyseGradient(stops, pos), contentOnly);
+	cacheSet(cacheKey, rendered);
+	return rendered;
+}
+
+/**
+ * The pack's curated macaron sweep, independent of the active theme.
+ *
+ * Cockpit's bar sits next to its own theme-colored chips, and a theme that maps several
+ * gradient roles to one color (the Noctalia palette collapses mdCode/success and
+ * warning/mdLink) would flatten the rainbow. Padding never consumes the sweep, so the chips
+ * and the shortcut hint share one spectrum however wide the bar is.
+ */
+export function renderMacaronContentGradient(text: string): string {
+	if (!text) return text;
+	const cacheKey = `\0bar\0${gradientCacheKey(text, MUELSYSE_MACARON_CACHE_KEY)}`;
+	const cached = cacheGet(cacheKey);
+	if (cached !== undefined) return cached;
+	const rendered = paintPositions(
+		text,
+		(pos) => sampleMuelsyseGradient(MUELSYSE_MACARON_STOPS, pos),
+		true,
+	);
 	cacheSet(cacheKey, rendered);
 	return rendered;
 }

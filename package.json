@@ -36,8 +36,19 @@
     "@earendil-works/pi-tui": "*"
   },
   "preview": {
-    "tools": ["read", "bash", "edit", "write"],
+    "skills": [
+      "~/.pi/agent/npm/node_modules/pi-maestro-flow/.pi/skills"
+    ],
     "extensions": [
+      "~/.pi/agent/npm/node_modules/pi-maestro-flow/src/extension/index.ts",
+      "~/.pi/agent/npm/node_modules/pi-maestro-flow/src/advisor/extension.ts",
+      "~/.pi/agent/npm/node_modules/pi-maestro-flow/src/self-evolve/extension.ts",
+      "~/.pi/agent/npm/node_modules/pi-maestro-flow/src/submit-gate/extension.ts",
+      "~/.pi/agent/npm/node_modules/pi-maestro-flow/src/classifier/extension.ts",
+      "~/.pi/agent/npm/node_modules/pi-maestro-teammate/src/extension/index.ts",
+      "~/.pi/agent/npm/node_modules/pi-cockpit/src/extension/index.ts"
+    ],
+    "openTuiExtensions": [
       "~/.pi/agent/npm/node_modules/pi-open-tui/extensions/open-tui/index.ts"
     ]
   },

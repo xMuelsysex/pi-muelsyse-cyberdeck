@@ -6,7 +6,13 @@
  * - Thinking: the effort tag breathes between its tier color and petal white
  * - Stall: after ~3s without stream updates the verb fades toward coral
  * - Tools: while a tool executes, the verb pulses toward mint
- * - HUD: ( EFFORT · ↓ N tokens · mm:ss ); "~" marks a live estimate
+ * - HUD: ( EFFORT · ↑ prompt ↓ output · tok/s · ↻ turns · mm:ss ); "~" marks a live estimate
+ *
+ * The HUD's live statistics mirror pi-cyber-working-only: upstream/downstream token
+ * counters, colour-banded throughput, and the run's model-round counter. Throughput
+ * is output tokens over the summed model-request durations (turn start to final
+ * message, first-token wait included), the footer telemetry's own definition, so the
+ * live figure and the run summary agree.
  *
  * Lightweight by design: a single ~11 Hz clock drives the glyph, sweep, dots and
  * token tween while the agent streams; zero timers when idle; no output outside TUI.
@@ -49,6 +55,7 @@ const LAVENDER: RGB = [199, 184, 245]; // #C7B8F5
 const SKY: RGB = [159, 211, 242]; // #9FD3F2
 const MINT: RGB = [174, 229, 197]; // #AEE5C5
 const CORAL: RGB = [255, 143, 163]; // #FF8FA3
+const BUTTER: RGB = [243, 217, 139]; // #F3D98B
 const MUTED: RGB = [169, 155, 174]; // #A99BAE
 const HIGHLIGHT: RGB = [255, 248, 252]; // petal white
 const SWEEP_STOPS: readonly RGB[] = [MUELSYSE, PEACH, PETAL, LAVENDER, SKY];
@@ -93,10 +100,31 @@ export function formatDigital(ms: number): string {
 const SMALL_NUMBER = new Intl.NumberFormat("en-US");
 const COMPACT_NUMBER = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
-export function formatTokenCount(n: number): string {
+export function formatTokenAmount(n: number): string {
   const value = Math.max(0, Math.round(n));
-  const number = value < 1_000 ? SMALL_NUMBER.format(value) : COMPACT_NUMBER.format(value).replace("K", "k");
-  return `${number} ${value === 1 ? "token" : "tokens"}`;
+  return value < 1_000 ? SMALL_NUMBER.format(value) : COMPACT_NUMBER.format(value).replace("K", "k");
+}
+
+/** Output tokens per generation second, as the footer telemetry defines it. */
+export function tokensPerSecond(outputTokens: number, generationMs: number): number | null {
+  if (!(outputTokens > 0) || !(generationMs > 0)) return null;
+  return outputTokens / (generationMs / 1000);
+}
+
+/** Throughput colour bands (pi-cyber-working-only's thresholds, macaron palette). */
+export function tpsColor(tps: number): RGB {
+  if (tps >= 100) return MINT;
+  if (tps >= 60) return SKY;
+  if (tps >= 30) return BUTTER;
+  return CORAL;
+}
+
+/** Prompt tokens a request reports: uncached input plus both cache buckets. */
+export function reportedPromptTokens(message: AssistantTokenMessage | undefined): number {
+  const usage = message?.usage;
+  const sum = [usage?.input, usage?.cacheWrite, usage?.cacheRead]
+    .reduce((total: number, value) => total + (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0), 0);
+  return Math.round(sum);
 }
 
 /** Fixed-width trailing dots so the HUD never shifts. */
@@ -306,6 +334,12 @@ export default function claudeShimmer(pi: ExtensionAPI) {
   let runOutcome: RunOutcome = "completed";
   let completedTokens = 0;
   let completedEstimated = false;
+  /** Reported prompt tokens of the run's finished requests. */
+  let promptTokens = 0;
+  /** Model rounds of this run (turn_start count). */
+  let runTurns = 0;
+  /** Summed model-request durations, the footer telemetry's generation time. */
+  let generationMs = 0;
 
   // Current assistant message.
   let mode: SpinnerMode = "requesting";
@@ -314,6 +348,12 @@ export default function claudeShimmer(pi: ExtensionAPI) {
   let activeToolCount = 0;
   let toolStart = 0;
   let reportedTokens: number | null = null;
+  /** Prompt tokens the in-flight request reported (0 until the provider does). */
+  let stepPromptTokens = 0;
+  /** Context size of the request that is still waiting to be reported on. */
+  let pendingPromptTokens = 0;
+  /** Wall clock when the in-flight model request started (0 = none). */
+  let stepStart = 0;
   const blockUnits = new Map<number, number>();
   let estimateUnits = 0;
 
@@ -322,11 +362,42 @@ export default function claudeShimmer(pi: ExtensionAPI) {
   let tick = 0;
   let displayedTokens = 0;
 
+  // Working-line ownership.
+  type WorkingSlotHold = {
+    ui: ExtensionContext["ui"];
+    /** The setter we wrapped; restored on release while our wrapper is still outermost. */
+    previous: (message?: string) => void;
+    wrapper: (message?: string) => void;
+  };
+  let workingSlot: WorkingSlotHold | null = null;
+  let ownWorkingWrite = false;
+
   const currentEstimate = () => Math.ceil(estimateUnits / 4);
 
   function tokenTarget(): TokenReading {
     const live = liveTokenReading(reportedTokens, currentEstimate());
     return { tokens: completedTokens + live.tokens, estimated: completedEstimated || live.estimated };
+  }
+
+  /**
+   * Upstream count for the HUD. Providers only report the prompt with the response,
+   * so before the first report the host's context estimate stands in for the request
+   * that is on its way, marked with the same "~" as an estimated output count.
+   */
+  function hudPrompt(): TokenReading {
+    if (stepPromptTokens > 0) return { tokens: promptTokens + stepPromptTokens, estimated: false };
+    if (promptTokens > 0) return { tokens: promptTokens, estimated: false };
+    return { tokens: pendingPromptTokens, estimated: pendingPromptTokens > 0 };
+  }
+
+  /** Refresh the pending-prompt estimate; `ctx.getContextUsage()` scans the session. */
+  function refreshPendingPrompt(ctx: ExtensionContext | null) {
+    try {
+      const tokens = ctx?.getContextUsage()?.tokens;
+      pendingPromptTokens = typeof tokens === "number" && Number.isFinite(tokens) && tokens > 0 ? Math.round(tokens) : 0;
+    } catch {
+      // Stale context after a session switch: keep the previous estimate.
+    }
   }
 
   function effortTag(): string | undefined {
@@ -367,22 +438,72 @@ export default function claudeShimmer(pi: ExtensionAPI) {
     const parts: string[] = [];
     const effort = effortTag();
     if (effort) parts.push(effort);
+    const prompt = hudPrompt();
+    if (prompt.tokens > 0) {
+      parts.push(paintFg(SKY, `↑ ${prompt.estimated ? "~" : ""}${formatTokenAmount(prompt.tokens)}`));
+    }
     const target = tokenTarget();
-    const arrow = mode === "requesting" ? "↑" : "↓";
-    parts.push(paintFg(SKY, `${arrow} ${target.estimated ? "~" : ""}${formatTokenCount(displayedTokens)}`));
+    const generating = mode !== "requesting";
+    parts.push(paintFg(generating ? MINT : MUTED, `↓ ${target.estimated ? "~" : ""}${formatTokenAmount(displayedTokens)}`));
+    const elapsedGeneration = generationMs + (stepStart > 0 ? now - stepStart : 0);
+    const tps = tokensPerSecond(target.tokens, elapsedGeneration);
+    if (tps !== null) {
+      parts.push(paintFg(generating ? tpsColor(tps) : MUTED, `${tps.toFixed(1)} tok/s`));
+    }
+    if (runTurns > 0) parts.push(paintFg(MUTED, `↻ ${runTurns}`));
     parts.push(paintFg(MUTED, formatDigital(now - runStart)));
     const hud = `${paintFg(MUTED, "( ")}${parts.join(paintFg(MUTED, " · "))}${paintFg(MUTED, " )")}`;
     return `${glyph} ${verbText} ${hud}`;
+  }
+
+  /**
+   * Pi exposes exactly one working-message slot (`ctx.ui.setWorkingMessage`) and no ownership
+   * API, so any other extension that refreshes it on its own clock — Cockpit's ambient
+   * "工作中 · 0:12" — paints over the HUD between our ticks. This never matches such an
+   * extension by package, version or text: while our clock runs the slot is simply ours, so
+   * foreign strings are dropped while clears and our own writes land. Non-TUI sessions are
+   * never held, and the setter is restored when the session ends or rebinds.
+   *
+   * Holding from `session_start` means a later `ctx.ui.setWorkingMessage` capture inside
+   * another extension captures this wrapper instead of the raw setter, and re-arming at every
+   * clock start heals a setter that a third party replaced after us. If the host ever refuses
+   * the wrap we keep animating and only lose the arbitration.
+   */
+  function holdWorkingSlot(ctx: ExtensionContext) {
+    const ui = ctx.ui;
+    if (workingSlot?.ui === ui && ui.setWorkingMessage === workingSlot.wrapper) return;
+    if (workingSlot && workingSlot.ui !== ui) releaseWorkingSlot();
+    const previous = ui.setWorkingMessage;
+    const wrapper = ((message?: string) => {
+      if (message !== undefined && !ownWorkingWrite && timer) return;
+      previous.call(ui, message);
+    }) as typeof ui.setWorkingMessage;
+    workingSlot = { ui, previous, wrapper };
+    try {
+      ui.setWorkingMessage = wrapper;
+    } catch {
+      workingSlot = null;
+    }
+  }
+
+  function releaseWorkingSlot() {
+    const current = workingSlot;
+    workingSlot = null;
+    // A setter stacked on top of ours keeps its own chain; ours stays behind as a passthrough.
+    if (current && current.ui.setWorkingMessage === current.wrapper) current.ui.setWorkingMessage = current.previous;
   }
 
   function updateDisplay() {
     const ctx = ctx_;
     if (!ctx || !timer) return;
     try {
+      ownWorkingWrite = true;
       ctx.ui.setWorkingMessage(buildMessage());
     } catch {
       // UI disposed mid-tick (session replaced/shutdown): stop quietly.
       stopClock();
+    } finally {
+      ownWorkingWrite = false;
     }
   }
 
@@ -394,6 +515,7 @@ export default function claudeShimmer(pi: ExtensionAPI) {
     } catch {
       return;
     }
+    holdWorkingSlot(ctx_!);
     timer = setInterval(() => {
       tick++;
       displayedTokens = tweenTokens(displayedTokens, tokenTarget().tokens);
@@ -423,6 +545,8 @@ export default function claudeShimmer(pi: ExtensionAPI) {
     blockUnits.clear();
     estimateUnits = 0;
     lastStreamAt = 0;
+    stepPromptTokens = 0;
+    stepStart = 0;
   }
 
   function setBlockUnits(index: number, units: number) {
@@ -458,7 +582,9 @@ export default function claudeShimmer(pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => {
     ctx_ = ctx;
-    if (isInteractiveTui(ctx)) syncColorMode(ctx.ui.theme);
+    if (!isInteractiveTui(ctx)) return;
+    syncColorMode(ctx.ui.theme);
+    holdWorkingSlot(ctx);
   });
 
   pi.on("agent_start", async (_event, ctx) => {
@@ -473,25 +599,34 @@ export default function claudeShimmer(pi: ExtensionAPI) {
       runOutcome = "completed";
       completedTokens = 0;
       completedEstimated = false;
+      promptTokens = 0;
+      runTurns = 0;
+      generationMs = 0;
       displayedTokens = 0;
       tick = 0;
     }
     resetMessage();
     activeToolCount = 0;
+    refreshPendingPrompt(ctx);
     startClock();
   });
 
   pi.on("turn_start", async (_event, ctx) => {
     ctx_ = ctx;
     if (!runActive) return;
+    runTurns += 1;
     resetMessage();
+    // The footer telemetry measures a request from turn start (first-token wait
+    // included); starting here keeps the live throughput and the summary equal.
+    stepStart = Date.now();
+    refreshPendingPrompt(ctx);
     startClock();
   });
 
   pi.on("message_start", async (event, ctx) => {
     if (!runActive || event.message.role !== "assistant") return;
     ctx_ = ctx;
-    resetMessage();
+    stepPromptTokens = reportedPromptTokens(event.message as AssistantTokenMessage);
   });
 
   pi.on("message_update", async (event, ctx) => {
@@ -500,6 +635,9 @@ export default function claudeShimmer(pi: ExtensionAPI) {
     const evt = event.assistantMessageEvent;
     const message = event.message as AssistantTokenMessage;
     reportedTokens = reportedOutputTokens(message) ?? reportedTokens;
+    // Providers may fill the prompt usage mid-stream; keep the live segment honest.
+    const reportedPrompt = reportedPromptTokens(message);
+    if (reportedPrompt > 0) stepPromptTokens = reportedPrompt;
 
     // Incremental estimate keyed by contentIndex (streams may interleave blocks).
     switch (evt.type) {
@@ -561,6 +699,10 @@ export default function claudeShimmer(pi: ExtensionAPI) {
     // Exactly once per finalized assistant message; totals accumulate across tool turns.
     completedTokens += final.tokens;
     completedEstimated ||= final.estimated;
+    promptTokens += stepPromptTokens;
+    stepPromptTokens = 0;
+    if (stepStart > 0) generationMs += Math.max(0, Date.now() - stepStart);
+    stepStart = 0;
     runOutcome = outcomeFromStopReason(message.stopReason);
     resetMessage();
     mode = "responding";
@@ -602,6 +744,7 @@ export default function claudeShimmer(pi: ExtensionAPI) {
 
   pi.on("session_shutdown", async () => {
     stopClock();
+    releaseWorkingSlot();
     runActive = false;
     ctx_ = null;
   });

@@ -581,24 +581,31 @@ function buildItems(
 		});
 	}
 
-	const statuses = Array.from(activeStatuses.entries()).sort(([a], [b]) =>
-		a < b ? -1 : a > b ? 1 : 0,
-	);
+	const statusKeys = [
+		...activeStatuses.keys(),
+		...Object.keys(config.extensionStatuses.placements),
+		...Object.keys(config.extensionStatuses.colorModes),
+	];
+	const statuses = [...new Set(statusKeys)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 	if (statuses.length === 0) {
 		return [
 			{
 				id: "noThirdPartyStatuses",
 				label: "No active statuses",
-				description: "This tab only lists statuses currently published through ctx.ui.setStatus().",
+				description: openTuiLoaded
+					? "Live statuses are read through this pack's footer, and /open-tui currently owns the footer, so none can be listed."
+					: "This tab only lists statuses currently published through ctx.ui.setStatus().",
 				currentValue: "—",
 			},
 		];
 	}
 
-	return statuses.flatMap(([key, value]) => {
-		const sanitizedText = sanitizeExtensionStatusText(value);
+	return statuses.flatMap((key) => {
+		const value = activeStatuses.get(key);
+		const sanitizedText = value === undefined ? undefined : sanitizeExtensionStatusText(value);
 		const description = sanitizedText
-		? `${settingsText("Current status", config.language)}: ${sanitizedText}` : undefined;
+			? `${settingsText("Current status", config.language)}: ${sanitizedText}`
+			: settingsText("Not publishing a status right now", config.language);
 		return [
 			{
 				id: thirdPartyStatusSettingId(key, "placement"),

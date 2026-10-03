@@ -92,6 +92,7 @@ test("extension never touches Pi's working message/indicator and only animates i
   const handlers = new Map<string, (event: unknown, ctx: unknown) => unknown>();
   let command: { handler: (args: string, ctx: unknown) => Promise<void> } | undefined;
   const calls: string[] = [];
+  const widgets = new Map<string, { render(width: number): string[] }>();
   const pi = {
     on: (name: string, fn: (event: unknown, ctx: unknown) => unknown) => void handlers.set(name, fn),
     registerCommand: (_name: string, options: typeof command) => void (command = options),
@@ -101,7 +102,16 @@ test("extension never touches Pi's working message/indicator and only animates i
     setWorkingMessage: () => calls.push("setWorkingMessage"),
     setWorkingIndicator: () => calls.push("setWorkingIndicator"),
     setWorkingVisible: () => calls.push("setWorkingVisible"),
-    setWidget: (_key: string, content: unknown) => calls.push(content ? "widget:on" : "widget:off"),
+    setWidget: (key: string, content?: unknown) => {
+      if (content === undefined) {
+        calls.push("widget:off");
+        widgets.delete(key);
+        return;
+      }
+      calls.push("widget:on");
+      const factory = content as (tui: unknown, theme: unknown) => { render(width: number): string[] };
+      widgets.set(key, factory({ requestRender: () => {} }, {}));
+    },
     notify: (message: string) => calls.push(`notify:${message}`),
   };
   matrix(pi as never);
@@ -112,13 +122,26 @@ test("extension never touches Pi's working message/indicator and only animates i
   assert.ok(calls.some((c) => c.startsWith("notify:") && c.includes("needs the interactive")));
   assert.ok(!calls.includes("widget:on"));
 
+  // Session start reserves the slot exactly once; idle renders no rows at all.
+  calls.length = 0;
+  await handlers.get("session_start")!({ type: "session_start" }, tui);
+  assert.deepEqual(calls, ["widget:on"]);
+  const widget = widgets.get("muelsyse-matrix-engine")!;
+  assert.deepEqual(widget.render(80), [], "an idle rain occupies no rows");
+
+  // Painting must not re-register: Pi renders widgets in registration order, so a
+  // second registration would drop the rain below every widget mounted meanwhile.
   await command!.handler("preview", tui);
-  assert.ok(calls.includes("widget:on"));
+  assert.ok(widget.render(80).length >= 3, "the preview paints rain rows");
+  assert.deepEqual(calls.filter((c) => c.startsWith("widget")), ["widget:on"], "starting does not touch the slot again");
+
+  // Stopping only clears the rows; the reserved slot stays where it is.
   await handlers.get("agent_end")!({ type: "agent_end", messages: [] }, tui);
-  assert.equal(calls.at(-1), "widget:off");
+  assert.deepEqual(widget.render(80), [], "rows disappear when the run ends");
+  assert.deepEqual(calls.filter((c) => c.startsWith("widget")), ["widget:on"], "the slot is never released or re-registered");
+  assert.ok(!calls.some((c) => c.startsWith("setWorking")));
 
   await command!.handler("status", tui);
   await command!.handler("fps 99", tui);
   assert.ok(calls.at(-1)!.includes("Usage: /muelsyse-matrix fps <8-18>"));
-  assert.ok(!calls.some((c) => c.startsWith("setWorking")));
 });

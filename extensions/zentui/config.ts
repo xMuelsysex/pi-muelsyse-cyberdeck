@@ -306,6 +306,14 @@ const DEFAULT_FOOTER_FORMAT = "";
 const DEFAULT_EXTENSION_PLACEMENTS: Record<string, ExtensionStatusPlacement> = {
 	"codex-goal": "middle",
 	"xai-usage": "right",
+	// Maestro Flow's informational statuses stay out of the footer by default
+	// (mode, approval mode, effort/model, auto-compaction, self-evolve).
+	// Each key can be placed again from /zentui.
+	"approval-mode": "off",
+	"maestro-auto-compact-mode": "off",
+	"maestro-effort": "off",
+	"mode": "off",
+	"self-evolve": "off",
 };
 
 type ConfigRecord = Record<string, unknown>;

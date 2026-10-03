@@ -85,12 +85,14 @@ function isInteractiveTui(ctx: Pick<ExtensionContext, "mode" | "hasUI">): boolea
 
 export default function muelsyseCyberdeckHeader(pi: ExtensionAPI): void {
   let artwork: readonly string[] = ANIME_ART;
+  let ownFactory: (() => unknown) | undefined;
+  let holdingSlot = false;
 
   const installHeader = (ctx: ExtensionContext) => {
     syncColorMode(ctx.ui.theme);
     let cachedWidth = -1;
     let cachedLines: string[] = [];
-    ctx.ui.setHeader(() => ({
+    ownFactory = () => ({
       render(width: number): string[] {
         if (width !== cachedWidth) {
           cachedLines = renderHeader(width, artwork);
@@ -101,14 +103,34 @@ export default function muelsyseCyberdeckHeader(pi: ExtensionAPI): void {
       invalidate() {
         cachedWidth = -1;
       },
-    }));
+    });
+    ctx.ui.setHeader(ownFactory as never);
+  };
+
+  /**
+   * Open TUI 也在自己的 session_start 里装页眉，且时机晚于本包。
+   * 在别人抢占页眉槽位后，下一轮宏任务里换回字符画，保证它始终显示。
+   */
+  const holdHeaderSlot = (ctx: ExtensionContext) => {
+    if (holdingSlot) return;
+    holdingSlot = true;
+    const original = ctx.ui.setHeader.bind(ctx.ui);
+    ctx.ui.setHeader = ((factory?: unknown) => {
+      original(factory as never);
+      if (factory === ownFactory || !ownFactory || !isInteractiveTui(ctx)) return;
+      setTimeout(() => {
+        if (ownFactory && isInteractiveTui(ctx)) original(ownFactory as never);
+      }, 0);
+    }) as typeof ctx.ui.setHeader;
   };
 
   pi.on("session_start", (_event, ctx) => {
+    if (!isInteractiveTui(ctx)) return;
     const openTuiLoaded = pi.getCommands().some((command) =>
       command.source === "extension" && command.name === "open-tui",
     );
-    if (isInteractiveTui(ctx) && !openTuiLoaded) installHeader(ctx);
+    if (openTuiLoaded) holdHeaderSlot(ctx);
+    installHeader(ctx);
   });
 
   pi.registerCommand("muelsyse-art", {
